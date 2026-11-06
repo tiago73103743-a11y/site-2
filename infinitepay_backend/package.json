@@ -1,5 +1,5 @@
 {
-  "name": "checkout-infinitepay-loja",
+  "name": "infinitepay-loja-firestore",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,5 +7,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
   }
 }
