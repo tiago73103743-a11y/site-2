@@ -8,7 +8,8 @@ const PORT=Number(process.env.PORT||3000);
 const HANDLE=String(process.env.INFINITEPAY_HANDLE||'').replace(/^\$/,'').trim();
 const API_KEY=String(process.env.INFINITEPAY_API_KEY||'').trim();
 const SITE_ORIGIN=String(process.env.SITE_ORIGIN||'').replace(/\/$/,'');
-const ADMIN_EMAIL=String(process.env.ADMIN_EMAIL||'').toLowerCase().trim();
+const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'');
+const ADMIN_SESSION_SECRET=String(process.env.ADMIN_SESSION_SECRET||'');
 const DESCONTO_PIX=Number(process.env.DESCONTO_PIX||0);
 const CATALOGO_INICIAL=JSON.parse(fs.readFileSync(new URL('./catalogo.json','file://'+__filename),'utf8'));
 const fretes={'Retirada no Local':0,'Correios':890,'Entrega':1490};
@@ -23,13 +24,38 @@ try {
 function cors(req){const origem=req.headers.origin||'';return !SITE_ORIGIN||origem===SITE_ORIGIN;}
 function json(req,res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':SITE_ORIGIN||'null','Vary':'Origin','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
 function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>30000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
-async function verificarAdmin(req){
-  if(!db||!ADMIN_EMAIL)throw new Error('ADMIN_EMAIL ou Firestore não configurado.');
-  const token=String(req.headers.authorization||'').match(/^Bearer (.+)$/)?.[1];
-  if(!token)throw new Error('Faça login com Firebase para administrar.');
-  const usuario=await admin.auth().verifyIdToken(token,true);
-  if(!usuario.email_verified||usuario.email?.toLowerCase()!==ADMIN_EMAIL)throw new Error('Conta sem permissão de administrador.');
-  return usuario;
+// Sessões de administração temporárias, assinadas e verificadas no servidor.
+// Configure ADMIN_PASSWORD (senha forte) e ADMIN_SESSION_SECRET (aleatório, 32+ caracteres) no Render.
+const tentativasFalhas = new Map();
+function hash(texto){return crypto.createHash('sha256').update(texto).digest();}
+function senhaValida(senha){
+  if (!ADMIN_PASSWORD || !ADMIN_SESSION_SECRET || ADMIN_SESSION_SECRET.length < 32) return false;
+  const a=hash(String(senha)), b=hash(ADMIN_PASSWORD);
+  return crypto.timingSafeEqual(a,b);
+}
+function assinatura(texto){return crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(texto).digest('base64url');}
+function criarToken(){
+  const dados=Buffer.from(JSON.stringify({tipo:'admin',exp:Date.now()+12*60*60*1000,nonce:crypto.randomBytes(12).toString('hex')})).toString('base64url');
+  return dados+'.'+assinatura(dados);
+}
+function verificarAdmin(req){
+  if(!db || !ADMIN_PASSWORD || ADMIN_SESSION_SECRET.length<32)throw new Error('Configure Firestore, ADMIN_PASSWORD e ADMIN_SESSION_SECRET no Render.');
+  const token=String(req.headers.authorization||'').match(/^Bearer (.+)$/)?.[1]||'';
+  const partes=token.split('.');
+  if(partes.length!==2||!partes[0]||!partes[1])throw new Error('Entre novamente como administrador.');
+  const esperado=Buffer.from(assinatura(partes[0]));
+  const recebido=Buffer.from(partes[1]);
+  if(esperado.length!==recebido.length||!crypto.timingSafeEqual(esperado,recebido))throw new Error('Sessão administrativa inválida.');
+  let dados;
+  try{dados=JSON.parse(Buffer.from(partes[0],'base64url').toString('utf8'));}catch{throw new Error('Sessão administrativa inválida.');}
+  if(dados.tipo!=='admin'||!Number.isSafeInteger(dados.exp)||dados.exp<Date.now())throw new Error('Sessão administrativa expirada.');
+  return true;
+}
+function limitadorLogin(req){
+  const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].slice(0,80);
+  const agora=Date.now(), atual=tentativasFalhas.get(ip)||{ate:0,tentativas:0};
+  if(agora>atual.ate){atual.tentativas=0;atual.ate=agora+15*60*1000;}
+  return {ip,atual};
 }
 async function catalogo(){
   const produtos={};
@@ -55,6 +81,18 @@ http.createServer(async(req,res)=>{
   try {
     if(req.url==='/health'&&req.method==='GET')return json(req,res,200,{ok:true,checkoutConfigurado:!!HANDLE,bancoConfigurado:!!db});
     if(req.url==='/api/produtos'&&req.method==='GET')return json(req,res,200,{produtos:await catalogo()});
+    if(req.url==='/api/admin/login'&&req.method==='POST'){
+      if(!db || !ADMIN_PASSWORD || ADMIN_SESSION_SECRET.length<32)return json(req,res,503,{error:'Acesso administrativo ainda não configurado no servidor.'});
+      const {ip,atual}=limitadorLogin(req);
+      if(atual.tentativas>=7)return json(req,res,429,{error:'Muitas tentativas. Tente novamente mais tarde.'});
+      const body=await corpo(req);
+      if(typeof body.senha!=='string'||body.senha.length>256||!senhaValida(body.senha)){
+        atual.tentativas++;tentativasFalhas.set(ip,atual);
+        return json(req,res,401,{error:'Senha administrativa incorreta.'});
+      }
+      tentativasFalhas.delete(ip);
+      return json(req,res,200,{token:criarToken(),expiraEmHoras:12});
+    }
     if(req.url==='/api/admin/me'&&req.method==='GET'){
       await verificarAdmin(req);return json(req,res,200,{admin:true});
     }
