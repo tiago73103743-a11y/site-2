@@ -534,12 +534,13 @@ body.carrinho-aberto {
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-2">Faça login com seu e-mail autorizado na área Acesso, acima. Depois, clique em Verificar acesso.</p>
+                <p class="mb-2">Digite a senha exclusiva do administrador. O acesso dos clientes por e-mail é independente.</p>
                 <div class="mb-3">
-                    <input type="text" class="form-control" id="senhaAdm" placeholder="Acesso validado com Firebase" disabled>
+                    <input type="password" class="form-control" id="senhaAdm" placeholder="Senha do administrador" autocomplete="current-password" onkeydown="if(event.key==='Enter')verificarSenhaAdm()">
                 </div>
-                <button type="button" class="btn btn-dark w-100" onclick="verificarSenhaAdm()">Verificar acesso administrativo</button>
+                <button type="button" class="btn btn-dark w-100" onclick="verificarSenhaAdm()">Entrar como administrador</button>
                 <div id="erroSenha" class="alert alert-danger d-none mt-3">Senha incorreta!</div>
+                <button type="button" id="btnSairAdm" class="btn btn-outline-danger w-100 mt-2 d-none" onclick="sairAdministrador()">Sair da administração</button>
 
             </div>
         </div>
@@ -628,7 +629,7 @@ body.carrinho-aberto {
         window.alert = function() {};
 
         // 🔑 SENHA DO ADMINISTRADOR — TROQUE AQUI SE QUISER
-        const SENHA_ADM = null; // Acesso administrativo confirmado pelo servidor usando Firebase Auth
+        // Senha administrativa nunca deve ficar neste HTML: a validação ocorre no Render.
         const ESTOQUE_PADRAO = 50;
         const FOTO_PADRAO = "sorvete/Três-tipos-e-sabores-de-sorvete-diferentes-1.jpg.webp";
         
@@ -1219,19 +1220,44 @@ body.carrinho-aberto {
        
      
 
+        // Autenticação do administrador separada do login de clientes.
+        const CHAVE_SESSAO_ADMIN = 'sessaoAdminRender';
+        function tokenAdmin() { return sessionStorage.getItem(CHAVE_SESSAO_ADMIN) || ''; }
+        function definirInterfaceAdmin(autorizado) {
+            modoAdmAtivo = !!autorizado;
+            document.body.classList.toggle('admin-logado', modoAdmAtivo);
+            document.getElementById('btnConfigLoja')?.classList.toggle('d-none', !modoAdmAtivo);
+            document.getElementById('btnSairAdm')?.classList.toggle('d-none', !modoAdmAtivo);
+        }
+        function sairAdministrador() {
+            sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
+            definirInterfaceAdmin(false);
+            document.getElementById('senhaAdm').value = '';
+            bootstrap.Modal.getInstance(document.getElementById('modalSenhaAdm'))?.hide();
+        }
         async function verificarSenhaAdm() {
             const erro = document.getElementById('erroSenha');
+            const campo = document.getElementById('senhaAdm');
+            const senha = campo.value;
             erro.classList.add('d-none');
+            if (!senha) { erro.textContent = 'Digite a senha do administrador.'; erro.classList.remove('d-none'); return; }
             try {
-                await confirmarAdminServidor();
-                modoAdmAtivo = true;
-                document.body.classList.add('admin-logado');
-                document.getElementById('btnConfigLoja').classList.remove('d-none');
+                const r = await fetch(urlCatalogo() + '/api/admin/login', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({senha})
+                });
+                const dados = await r.json();
+                if (!r.ok || !dados.token) throw new Error(dados.error || 'Acesso negado.');
+                sessionStorage.setItem(CHAVE_SESSAO_ADMIN, dados.token);
+                definirInterfaceAdmin(true);
+                campo.value = '';
                 bootstrap.Modal.getInstance(document.getElementById('modalSenhaAdm'))?.hide();
                 await sincronizarProdutosOnline();
             } catch(e) {
-                modoAdmAtivo = false;
-                erro.textContent = e.message || 'Acesso administrativo não autorizado.';
+                sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
+                definirInterfaceAdmin(false);
+                erro.textContent = e.message || 'Não foi possível verificar o acesso.';
                 erro.classList.remove('d-none');
             }
         }
@@ -1421,6 +1447,7 @@ adicionarAoCarrinho = function(id) {
 function abrirModalSenhaAdm() {
     document.getElementById('erroSenha').classList.add('d-none');
     document.getElementById('senhaAdm').value = '';
+    document.getElementById('btnSairAdm')?.classList.toggle('d-none', !modoAdmAtivo);
     new bootstrap.Modal(document.getElementById('modalSenhaAdm')).show();
 }
 
@@ -1432,12 +1459,15 @@ function abrirModalSenhaAdm() {
             return (configLoja.infinitepay?.backendUrl || URL_BACKEND_PADRAO).replace(/\/$/, '');
         }
         async function confirmarAdminServidor() {
-            const usuario = firebase.auth().currentUser;
-            if (!usuario) throw new Error('Entre primeiro com seu e-mail no botão Entrar / Cadastrar.');
-            const token = await usuario.getIdToken();
+            const token = tokenAdmin();
+            if (!token) throw new Error('Entre pela engrenagem usando sua senha administrativa.');
             const r = await fetch(urlCatalogo()+'/api/admin/me', {headers:{Authorization:'Bearer '+token}});
             const dado=await r.json();
-            if (!r.ok || !dado.admin) throw new Error(dado.error || 'E-mail não autorizado como administrador.');
+            if (!r.ok || !dado.admin) {
+                sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
+                definirInterfaceAdmin(false);
+                throw new Error(dado.error || 'Sessão expirada. Entre novamente como administrador.');
+            }
             return token;
         }
         async function requisicaoAdmin(path, method, dado) {
@@ -1537,9 +1567,6 @@ function abrirModalSenhaAdm() {
             const area=document.getElementById('listaProdutos');area.innerHTML='';
             Object.keys(produtos).forEach(id=>area.insertAdjacentHTML('beforeend',criarTemplateProduto(id)));
         };
-        firebase.auth().onAuthStateChanged(usuario=>{
-            if(!usuario && modoAdmAtivo){modoAdmAtivo=false;document.body.classList.remove('admin-logado');document.getElementById('btnConfigLoja')?.classList.add('d-none');}
-        });
 
         document.addEventListener('DOMContentLoaded', function() {
             carregarConfiguracoes();
@@ -1547,6 +1574,9 @@ function abrirModalSenhaAdm() {
             sincronizarProdutosOnline();
             verificarLinkAutomatico();
             carregarFundoCabecalho();
+            if (tokenAdmin()) {
+                confirmarAdminServidor().then(()=>definirInterfaceAdmin(true)).catch(()=>definirInterfaceAdmin(false));
+            }
             
             if (modoAdmAtivo) {
                 document.getElementById("btnConfigLoja").classList.remove("d-none");
