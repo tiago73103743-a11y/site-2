@@ -389,8 +389,8 @@ body.carrinho-aberto {
                 <button type="button" class="btn btn-primary my-3 w-100" onclick="abrirConfigLoja()">
                     <i class="bi bi-gear-fill me-2"></i> Abrir Configurações da Loja / InfinitePay
                 </button>
-                <button type="button" class="btn btn-outline-primary w-100 mb-2" onclick="exportarCatalogoInfinitePay()"><i class="bi bi-download me-1"></i>Baixar catálogo de preços para o servidor InfinitePay</button>
-                <p class="small text-muted mb-2">Depois de alterar preços ou adicionar produtos, baixe o catálogo e substitua o arquivo catalogo.json no GitHub do servidor. O Render fará a publicação automaticamente.</p>
+                <div class="small text-success mb-2" id="statusCatalogoOnline">Produtos sincronizados pelo servidor. Fotos ainda precisam de armazenamento compartilhado.</div>
+                <p class="small text-muted mb-2">Preços e produtos são sincronizados com o banco de dados do servidor. Não é necessário editar o GitHub.</p>
                 <div id="controleBotaoTrocaFoto" class="mb-3 p-2 bg-light rounded border">
     <h6 class="mb-2"><i class="bi bi-camera"></i> Botão "Trocar Foto" dos Produtos</h6>
     <div class="form-check form-switch">
@@ -534,12 +534,11 @@ body.carrinho-aberto {
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-2">Digite a senha de administração:</p>
+                <p class="mb-2">Faça login com seu e-mail autorizado na área Acesso, acima. Depois, clique em Verificar acesso.</p>
                 <div class="mb-3">
-                    <input type="password" class="form-control" id="senhaAdm" placeholder="Senha" 
-                           onkeypress="if(event.key==='Enter')verificarSenhaAdm()">
+                    <input type="text" class="form-control" id="senhaAdm" placeholder="Acesso validado com Firebase" disabled>
                 </div>
-                <button type="button" class="btn btn-dark w-100" onclick="verificarSenhaAdm()">Entrar como administrador</button>
+                <button type="button" class="btn btn-dark w-100" onclick="verificarSenhaAdm()">Verificar acesso administrativo</button>
                 <div id="erroSenha" class="alert alert-danger d-none mt-3">Senha incorreta!</div>
 
             </div>
@@ -629,7 +628,7 @@ body.carrinho-aberto {
         window.alert = function() {};
 
         // 🔑 SENHA DO ADMINISTRADOR — TROQUE AQUI SE QUISER
-        const SENHA_ADM = "admin123";
+        const SENHA_ADM = null; // Acesso administrativo confirmado pelo servidor usando Firebase Auth
         const ESTOQUE_PADRAO = 50;
         const FOTO_PADRAO = "sorvete/Três-tipos-e-sabores-de-sorvete-diferentes-1.jpg.webp";
         
@@ -644,7 +643,7 @@ body.carrinho-aberto {
         let carrinho = [];
         let totalCarrinho = 0;
        let configLoja = {
-    infinitepay: { backendUrl: "" },
+    infinitepay: { backendUrl: "https://infinitepay-backend.onrender.com" },
     pix: { chave: "", nome: "", qrCodeImagem: "" },
     descontoPixPercent: 5 // valor padrão 5%
 };
@@ -807,7 +806,7 @@ body.carrinho-aberto {
             try {
                 const dados = JSON.parse(localStorage.getItem("configLoja") || "null");
                 if (dados) {
-                    configLoja.infinitepay = { backendUrl: dados.infinitepay?.backendUrl || "" };
+                    configLoja.infinitepay = { backendUrl: dados.infinitepay?.backendUrl || "https://infinitepay-backend.onrender.com" };
                     configLoja.pix = { chave: dados.pix?.chave || "", nome: dados.pix?.nome || "", qrCodeImagem: dados.pix?.qrCodeImagem || "" };
                     configLoja.descontoPixPercent = Number.isFinite(Number(dados.descontoPixPercent)) ? Number(dados.descontoPixPercent) : 5;
                 }
@@ -1220,18 +1219,20 @@ body.carrinho-aberto {
        
      
 
-        function verificarSenhaAdm() {
-            document.getElementById('erroSenha').classList.add('d-none');
-            if (document.getElementById('senhaAdm').value === SENHA_ADM) {
+        async function verificarSenhaAdm() {
+            const erro = document.getElementById('erroSenha');
+            erro.classList.add('d-none');
+            try {
+                await confirmarAdminServidor();
                 modoAdmAtivo = true;
                 document.body.classList.add('admin-logado');
-                document.getElementById("btnConfigLoja").classList.remove("d-none");
-                carregarConfiguracoes();
-                atualizarExibicaoDados();
-                bootstrap.Modal.getInstance(document.getElementById('modalSenhaAdm')).hide();
-                alert('✅ Modo administrador ativado!');
-            } else {
-                document.getElementById('erroSenha').classList.remove('d-none');
+                document.getElementById('btnConfigLoja').classList.remove('d-none');
+                bootstrap.Modal.getInstance(document.getElementById('modalSenhaAdm'))?.hide();
+                await sincronizarProdutosOnline();
+            } catch(e) {
+                modoAdmAtivo = false;
+                erro.textContent = e.message || 'Acesso administrativo não autorizado.';
+                erro.classList.remove('d-none');
             }
         }
 
@@ -1424,9 +1425,126 @@ function abrirModalSenhaAdm() {
 }
 
 
+
+        // ================= CATÁLOGO ONLINE / FIRESTORE =================
+        const URL_BACKEND_PADRAO = 'https://infinitepay-backend.onrender.com';
+        function urlCatalogo() {
+            return (configLoja.infinitepay?.backendUrl || URL_BACKEND_PADRAO).replace(/\/$/, '');
+        }
+        async function confirmarAdminServidor() {
+            const usuario = firebase.auth().currentUser;
+            if (!usuario) throw new Error('Entre primeiro com seu e-mail no botão Entrar / Cadastrar.');
+            const token = await usuario.getIdToken();
+            const r = await fetch(urlCatalogo()+'/api/admin/me', {headers:{Authorization:'Bearer '+token}});
+            const dado=await r.json();
+            if (!r.ok || !dado.admin) throw new Error(dado.error || 'E-mail não autorizado como administrador.');
+            return token;
+        }
+        async function requisicaoAdmin(path, method, dado) {
+            const token = await confirmarAdminServidor();
+            const r = await fetch(urlCatalogo()+path, {
+                method, headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},
+                body: JSON.stringify(dado)
+            });
+            const resp = await r.json();
+            if (!r.ok) throw new Error(resp.error || 'Não foi possível salvar no banco de dados.');
+            return resp;
+        }
+        let produtosOnlineCarregados = false;
+        async function sincronizarProdutosOnline() {
+            const status = document.getElementById('statusCatalogoOnline');
+            try {
+                const r = await fetch(urlCatalogo()+'/api/produtos', {cache:'no-store'});
+                if (!r.ok) throw new Error('Servidor não disponível: '+r.status);
+                const dados = await r.json();
+                if (!dados.produtos || typeof dados.produtos !== 'object') throw new Error('Catálogo inválido');
+                const lista = {};
+                for (const [id,p] of Object.entries(dados.produtos)) {
+                    if (!/^\d+$/.test(id)) continue;
+                    lista[id] = {
+                        nome:p.nome, precoAtual:p.precoCentavos/100,
+                        precoAntigo:null, estoque:Number.isInteger(p.estoque)?p.estoque:50,
+                        foto:p.foto || FOTO_PADRAO, alturaFoto:180, ajusteFoto:'cover'
+                    };
+                }
+                produtos = lista;
+                produtosOnlineCarregados=true;
+                proximoId=Math.max(0,...Object.keys(produtos).map(Number))+1;
+                const area=document.getElementById('listaProdutos');
+                area.innerHTML='';
+                Object.keys(produtos).forEach(id=>area.insertAdjacentHTML('beforeend',criarTemplateProduto(id)));
+                aplicarVisibilidadeBotaoTroca();
+                if(status) {status.className='small text-success mb-2';status.textContent='Catálogo compartilhado sincronizado.';}
+            } catch(e) {
+                if(status) {status.className='small text-danger mb-2';status.textContent='Sem sincronização: '+e.message;}
+                console.error('Sincronização:',e);
+            }
+        }
+        // As operações de preço e estoque exigem autenticação verificada no backend.
+        window.editarPrecos = async function(id) {
+            if (!modoAdmAtivo || !produtosOnlineCarregados) return;
+            const p=produtos[id];
+            const valor=prompt('Novo preço em reais (ex.: 40,00):',p.precoAtual.toFixed(2).replace('.',','));
+            if(valor===null)return;
+            const numero=Number(valor.trim().replace(',','.'));
+            const centavos=Math.round(numero*100);
+            if(!Number.isFinite(numero)||!Number.isSafeInteger(centavos)||centavos<100) {mostrarResultadoAdmin('Preço inválido.');return;}
+            try {
+                await requisicaoAdmin('/api/admin/produtos/'+id,'PUT',{nome:p.nome,precoCentavos:centavos,estoque:p.estoque});
+                await sincronizarProdutosOnline();
+                mostrarResultadoAdmin('Preço atualizado para todos os clientes.');
+            } catch(e) { mostrarResultadoAdmin(e.message); }
+        };
+        window.adicionarNovoProduto = async function() {
+            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
+            const nome=prompt('Nome do produto:');if(!nome?.trim())return;
+            const str=prompt('Preço em reais (ex.: 30,00):');if(str===null)return;
+            const precoCentavos=Math.round(Number(str.replace(',','.'))*100);
+            const estoque=Number(prompt('Quantidade em estoque:', '50'));
+            if(!Number.isSafeInteger(precoCentavos)||precoCentavos<100||!Number.isInteger(estoque)||estoque<0) {mostrarResultadoAdmin('Preço ou estoque inválido.');return;}
+            try {await requisicaoAdmin('/api/admin/produtos/'+proximoId,'PUT',{nome:nome.trim(),precoCentavos,estoque});await sincronizarProdutosOnline();mostrarResultadoAdmin('Produto cadastrado.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        window.editarCampo = async function(elId,id) {
+            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
+            const p=produtos[id], nome=prompt('Novo nome:',p.nome);
+            if(!nome?.trim())return;
+            try {await requisicaoAdmin('/api/admin/produtos/'+id,'PUT',{nome:nome.trim(),precoCentavos:Math.round(p.precoAtual*100),estoque:p.estoque});await sincronizarProdutosOnline();mostrarResultadoAdmin('Nome atualizado.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        window.editarEstoque = async function(id) {
+            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
+            const p=produtos[id], texto=prompt('Quantidade em estoque:', String(p.estoque));
+            if(texto===null)return;
+            const estoque=Number(texto);
+            if(!Number.isInteger(estoque)||estoque<0){mostrarResultadoAdmin('Estoque inválido.');return;}
+            try {await requisicaoAdmin('/api/admin/produtos/'+id,'PUT',{nome:p.nome,precoCentavos:Math.round(p.precoAtual*100),estoque});await sincronizarProdutosOnline();mostrarResultadoAdmin('Estoque atualizado.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        window.excluirProduto = async function(id) {
+            if(!modoAdmAtivo||!produtosOnlineCarregados||!confirm('Excluir produto?'))return;
+            try {await requisicaoAdmin('/api/admin/produtos/'+id,'DELETE',{});await sincronizarProdutosOnline();mostrarResultadoAdmin('Produto excluído.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        function mostrarResultadoAdmin(texto) {
+            const el=document.getElementById('statusCatalogoOnline');
+            if(el) {el.textContent=texto; el.className='small text-info mb-2';}
+            else console.info(texto);
+        }
+        const recarregarAntes = recarregarTodosProdutos;
+        recarregarTodosProdutos = function() {
+            if (!produtosOnlineCarregados) return recarregarAntes();
+            const area=document.getElementById('listaProdutos');area.innerHTML='';
+            Object.keys(produtos).forEach(id=>area.insertAdjacentHTML('beforeend',criarTemplateProduto(id)));
+        };
+        firebase.auth().onAuthStateChanged(usuario=>{
+            if(!usuario && modoAdmAtivo){modoAdmAtivo=false;document.body.classList.remove('admin-logado');document.getElementById('btnConfigLoja')?.classList.add('d-none');}
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             carregarConfiguracoes();
             recarregarTodosProdutos();
+            sincronizarProdutosOnline();
             verificarLinkAutomatico();
             carregarFundoCabecalho();
             
@@ -1469,4 +1587,3 @@ function aplicarVisibilidadeBotaoTroca() {
     
 </body>
 </html>
-
