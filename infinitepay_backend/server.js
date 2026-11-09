@@ -20,7 +20,11 @@ try {
     admin.initializeApp({credential:admin.credential.cert(conta)});
     db=admin.firestore();
   } else console.warn('Firestore não configurado; edição online desabilitada.');
-} catch(e){console.error('Firebase Admin inválido:',e.message);}function cors(req){
+} } catch(e){
+  console.error('Firebase Admin inválido:',e.message);
+}
+
+function cors(req){
   const origem = req.headers.origin || '';
 
   if (!origem && req.method === 'GET' && req.url === '/health') {
