@@ -24,6 +24,7 @@ try {
   console.error('Firebase Admin inválido:',e.message);
 }
 
+function imagemValida(s){return typeof s==='string'&&s.length<350000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s);}
 function cors(req){
   const origem = req.headers.origin || '';
 
@@ -34,7 +35,7 @@ function cors(req){
   return !SITE_ORIGIN || origem === SITE_ORIGIN;
 }
 function json(req,res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':SITE_ORIGIN||'null','Vary':'Origin','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
-function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>30000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
+function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>550000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
 // Sessões de administração temporárias, assinadas e verificadas no servidor.
 // Configure ADMIN_PASSWORD (senha forte) e ADMIN_SESSION_SECRET (aleatório, 32+ caracteres) no Render.
 const tentativasFalhas = new Map();
@@ -71,19 +72,19 @@ function limitadorLogin(req){
 async function catalogo(){
   const produtos={};
   for(const [id,p] of Object.entries(CATALOGO_INICIAL)){
-    if(/^\d+$/.test(id))produtos[id]={nome:String(p.nome),precoCentavos:Number(p.precoCentavos),estoque:50};
+    if(/^\d+$/.test(id))produtos[id]={nome:String(p.nome),precoCentavos:Number(p.precoCentavos),estoque:50,foto:'',alturaFoto:180,ajusteFoto:'cover',pixQr:''};
   }
   if(db){
     const snap=await db.collection('produtos').get();
     snap.forEach(doc=>{
       const p=doc.data();
       if(p.excluido){delete produtos[doc.id];return;}
-      if(/^\d+$/.test(doc.id))produtos[doc.id]={nome:p.nome,precoCentavos:p.precoCentavos,estoque:p.estoque};
+      if(/^\d+$/.test(doc.id))produtos[doc.id]={nome:p.nome,precoCentavos:p.precoCentavos,estoque:p.estoque,foto:p.foto||'',alturaFoto:p.alturaFoto||180,ajusteFoto:p.ajusteFoto||'cover',pixQr:p.pixQr||''};
     });
   }
   return produtos;
 }
-const pedidos=new Map(); // Teste: falta persistência e confirmação pela API para produção
+// Pedidos persistidos no Firestore; baixa de estoque ainda exige confirmação autenticada da InfinitePay.
 http.createServer(async(req,res)=>{
   if(req.method==='OPTIONS'){
     res.writeHead(cors(req)?204:403,{'Access-Control-Allow-Origin':SITE_ORIGIN||'null','Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization','Vary':'Origin'});return res.end();
@@ -119,7 +120,32 @@ http.createServer(async(req,res)=>{
       const body=await corpo(req);
       const nome=String(body.nome||'').trim(),precoCentavos=Number(body.precoCentavos),estoque=Number(body.estoque);
       if(!nome||nome.length>90||!Number.isSafeInteger(precoCentavos)||precoCentavos<100||precoCentavos>100000000||!Number.isSafeInteger(estoque)||estoque<0||estoque>100000) return json(req,res,400,{error:'Dados do produto inválidos'});
-      await db.collection('produtos').doc(id).set({nome,precoCentavos,estoque,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()});
+      await db.collection('produtos').doc(id).set({nome,precoCentavos,estoque,excluido:false,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+      return json(req,res,200,{ok:true});
+    }
+    if(req.url==='/api/aparencia'&&req.method==='GET'){
+      if(!db)return json(req,res,200,{logo:''});
+      const doc=await db.collection('configuracoes').doc('aparencia').get();
+      return json(req,res,200,{logo:doc.data()?.logo||''});
+    }
+    if(req.url==='/api/admin/aparencia'&&req.method==='PUT'){
+      verificarAdmin(req);const b=await corpo(req);
+      if(!imagemValida(b.logo))return json(req,res,400,{error:'Imagem inválida ou muito grande'});
+      await db.collection('configuracoes').doc('aparencia').set({logo:b.logo},{merge:true});
+      return json(req,res,200,{ok:true});
+    }
+    const imagemRota=req.url.match(/^\/api\/admin\/produtos\/(\d+)\/(imagem|pix)$/);
+    if(imagemRota&&req.method==='PUT'){
+      verificarAdmin(req);const [_,id,tipo]=imagemRota;
+      const b=await corpo(req),campo=tipo==='imagem'?'foto':'pixQr';
+      if(!imagemValida(b[campo]))return json(req,res,400,{error:'Imagem inválida ou muito grande'});
+      const ref=db.collection('produtos').doc(id), existente=await ref.get();
+      if(!existente.exists){
+        const inicial=CATALOGO_INICIAL[id];
+        if(!inicial)return json(req,res,404,{error:'Produto não encontrado'});
+        await ref.set({nome:inicial.nome,precoCentavos:inicial.precoCentavos,estoque:50});
+      }
+      await ref.set({[campo]:b[campo],atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
       return json(req,res,200,{ok:true});
     }
     if(req.url==='/api/checkout'&&req.method==='POST'){
@@ -145,7 +171,7 @@ http.createServer(async(req,res)=>{
       if(!respostaApi.ok)return json(req,res,502,{error:dados.message||dados.error||'Falha ao criar cobrança na InfinitePay'});
       const url=dados.url||dados.checkout_url||dados.link;
       if(typeof url!=='string'||!url.startsWith('https://'))throw new Error('Checkout retornou URL inválida');
-      pedidos.set(order_nsu,{valorCentavos,paid:false});
+      if(db)await db.collection('pedidos').doc(order_nsu).set({valorCentavos,pago:false,itens:body.itens,frete:body.frete,criadoEm:admin.firestore.FieldValue.serverTimestamp()});
       return json(req,res,200,{url,order_nsu,valorCentavos});
     }
     return json(req,res,404,{error:'Rota inexistente'});
