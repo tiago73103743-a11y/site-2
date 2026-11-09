@@ -1390,11 +1390,34 @@ function abrirModalSenhaAdm() {
             } finally {URL.revokeObjectURL(url);}
         }
         window.trocarFoto=async function(event,imgId,id){
-            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
-            try {const foto=await imagemCompactada(event.target.files?.[0]);
+            const campo=event.target;
+            const botao=campo.previousElementSibling;
+            const original=botao?.innerHTML;
+            const avisar=(mensagem,erro=false)=>{
+                mostrarResultadoAdmin(mensagem);
+                let aviso=document.getElementById('avisoFoto'+id);
+                if(!aviso){aviso=document.createElement('div');aviso.id='avisoFoto'+id;aviso.setAttribute('role','status');aviso.className='small p-2';campo.parentElement.appendChild(aviso);}
+                aviso.className='small p-2 '+(erro?'text-danger bg-light':'text-success bg-light');
+                aviso.textContent=mensagem;
+            };
+            if(!modoAdmAtivo){avisar('Entre como administrador para alterar a foto.',true);campo.value='';return;}
+            if(!produtosOnlineCarregados){avisar('O catálogo online não carregou. Verifique a conexão com o Render e atualize a página.',true);campo.value='';return;}
+            if(!campo.files?.[0])return;
+            if(botao){botao.disabled=true;botao.textContent='Enviando foto...';}
+            try {
+                const foto=await imagemCompactada(campo.files[0]);
                 await requisicaoAdmin('/api/admin/produtos/'+id+'/imagem','PUT',{foto});
-                await sincronizarProdutosOnline();mostrarResultadoAdmin('Foto publicada para todos os clientes.');
-            }catch(e){mostrarResultadoAdmin(e.message);}finally{event.target.value='';}
+                // Atualização imediata; sincronização com Firestore logo em seguida.
+                if(produtos[id])produtos[id].foto=foto;
+                const imagem=document.getElementById(imgId);
+                if(imagem)imagem.src=foto;
+                avisar('Foto salva no servidor. Atualizando catálogo...');
+                await sincronizarProdutosOnline();
+                avisar('Foto publicada para todos os clientes.');
+            }catch(e){
+                console.error('Falha ao enviar foto:',e);
+                avisar('Não foi possível salvar a foto: '+(e.message||String(e)),true);
+            }finally{campo.value='';if(botao){botao.disabled=false;botao.innerHTML=original;}}
         };
         async function salvarLogoOnline(event){
             if(!modoAdmAtivo)return;
