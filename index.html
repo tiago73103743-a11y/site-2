@@ -1378,15 +1378,28 @@ function abrirModalSenhaAdm() {
 
 
         // Imagens sincronizadas com o Firestore: só o servidor aceita alteração autenticada.
-        async function imagemCompactada(arquivo, limite=520, qualidade=.72) {
-            if (!arquivo || !arquivo.type.startsWith('image/')) throw new Error('Selecione uma imagem válida.');
-            const img = new Image(); const url=URL.createObjectURL(arquivo);
-            try {await new Promise((ok,erro)=>{img.onload=ok;img.onerror=erro;img.src=url;});
-              const escala=Math.min(1,limite/Math.max(img.naturalWidth,img.naturalHeight));
-              const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*escala));canvas.height=Math.max(1,Math.round(img.naturalHeight*escala));
-              canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-              const dados=canvas.toDataURL('image/jpeg',qualidade);
-              if(dados.length>350000)throw new Error('Imagem muito grande; escolha outra foto.');return dados;
+        // Redimensiona e ajusta a qualidade para caber no limite do Firestore.
+        async function imagemCompactada(arquivo, limite=900, qualidade=.82) {
+            if (!arquivo || !arquivo.type.startsWith('image/')) throw new Error('Selecione uma imagem PNG, JPG ou WebP.');
+            const img = new Image(), url=URL.createObjectURL(arquivo);
+            try {
+                await new Promise((ok,erro)=>{img.onload=ok;img.onerror=()=>erro(new Error('Não foi possível abrir esta imagem.'));img.src=url;});
+                const maximo=600000;
+                let lado=limite;
+                for(let tentativa=0;tentativa<9;tentativa++) {
+                    const escala=Math.min(1,lado/Math.max(img.naturalWidth,img.naturalHeight));
+                    const canvas=document.createElement('canvas');
+                    canvas.width=Math.max(1,Math.round(img.naturalWidth*escala));
+                    canvas.height=Math.max(1,Math.round(img.naturalHeight*escala));
+                    const ctx=canvas.getContext('2d');
+                    if(!ctx)throw new Error('Seu navegador não conseguiu processar a foto.');
+                    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+                    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+                    const dados=canvas.toDataURL('image/jpeg',Math.max(.45,qualidade-tentativa*.045));
+                    if(dados.length<=maximo)return dados;
+                    lado=Math.round(lado*.8);
+                }
+                throw new Error('Não foi possível compactar a foto. Tente outra imagem.');
             } finally {URL.revokeObjectURL(url);}
         }
         window.trocarFoto=async function(event,imgId,id){
@@ -1413,18 +1426,21 @@ function abrirModalSenhaAdm() {
                 if(imagem)imagem.src=foto;
                 avisar('Foto salva no servidor. Atualizando catálogo...');
                 await sincronizarProdutosOnline();
-                avisar('Foto publicada para todos os clientes.');
+                if(produtos[id]?.foto===foto) avisar('Foto publicada para todos os clientes.');
+                else avisar('Foto enviada, mas a atualização do catálogo ainda não foi confirmada. Atualize a página para conferir.',true);
             }catch(e){
                 console.error('Falha ao enviar foto:',e);
                 avisar('Não foi possível salvar a foto: '+(e.message||String(e)),true);
             }finally{campo.value='';if(botao){botao.disabled=false;botao.innerHTML=original;}}
         };
         async function salvarLogoOnline(event){
-            if(!modoAdmAtivo)return;
-            try {const logo=await imagemCompactada(event.target.files?.[0],360);
+            if(!modoAdmAtivo){mostrarResultadoAdmin('Entre como administrador para trocar o logotipo.');return;}
+            if(!event.target.files?.[0])return;
+            mostrarResultadoAdmin('Enviando logotipo...');
+            try {const logo=await imagemCompactada(event.target.files?.[0],600);
                 await requisicaoAdmin('/api/admin/aparencia','PUT',{logo});
                 document.getElementById('logoLoja').src=logo;mostrarResultadoAdmin('Logotipo publicado.');
-            }catch(e){mostrarResultadoAdmin(e.message);}finally{event.target.value='';}
+            }catch(e){console.error('Logotipo:',e);mostrarResultadoAdmin('Erro ao salvar logotipo: '+e.message);}finally{event.target.value='';}
         }
         async function salvarPixProdutoOnline(event,id){
             if(!modoAdmAtivo)return;
