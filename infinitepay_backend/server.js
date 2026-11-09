@@ -162,7 +162,7 @@ http.createServer(async(req,res)=>{
       const valorCentavos=items.reduce((s,i)=>s+i.price*i.quantity,0);
       if(!Number.isSafeInteger(body.valorEsperadoCentavos)||body.valorEsperadoCentavos!==valorCentavos)return json(req,res,409,{error:'Preço da loja desatualizado. Atualize a página e tente de novo. Valor seguro do servidor: R$ '+(valorCentavos/100).toFixed(2).replace('.',',')});
       const order_nsu=crypto.randomUUID(),payload={handle:HANDLE,order_nsu,items};
-      if(SITE_ORIGIN.startsWith('https://'))payload.redirect_url=SITE_ORIGIN+'/site-2/';
+      if(SITE_ORIGIN.startsWith('https://'))payload.redirect_url=SITE_ORIGIN+'/site-2/'; 
       if(API_KEY){payload.options={single_payment:true};if(DESCONTO_PIX>0&&DESCONTO_PIX<100)payload.options.discounts={pix:DESCONTO_PIX};}
       const headers={'Content-Type':'application/json'};
       if(API_KEY)headers['X-Api-Key']=API_KEY;
