@@ -173,6 +173,8 @@ body.carrinho-aberto {
             border-radius: 8px;
             margin-bottom: 2rem;
         }
+        .admin-apenas { display:none; }
+        .admin-logado .admin-apenas { display:inline-block; }
         .admin-logado .painel-adm {
             display: block;
         }
@@ -352,8 +354,10 @@ body.carrinho-aberto {
             
             <div class="d-flex align-items-center justify-content-between">
                 <div class="d-flex align-items-center gap-4">
-                    <div class="position-relative"><img id="logoLoja" src="sorvete/log.jpeg" alt="Logotipo" class="img-fluid rounded-circle" style="width:100px;height:100px;object-fit:cover"><button type="button" class="btn btn-light btn-sm btn-editar mt-1" onclick="document.getElementById('arquivoLogoAdmin').click()">Trocar logotipo</button><input id="arquivoLogoAdmin" type="file" accept="image/*" class="d-none" onchange="salvarLogoOnline(event)"></div>
+                    <img id="logoLoja" src="sorvete/log.jpeg" alt="Logotipo" class="img-fluid rounded-circle" style="max-width: 100px;">
                     <div class="text-white">
+                        <button type="button" class="btn btn-sm btn-light mb-2 admin-apenas" onclick="document.getElementById('inputLogoAdmin').click()"><i class="bi bi-camera"></i> Trocar logotipo</button>
+                        <input id="inputLogoAdmin" type="file" accept="image/png,image/jpeg,image/webp" class="d-none" onchange="trocarLogoAdmin(event)">
                         <h1 class="display-4 fw-bolder">Compre com estilo</h1>
                         <p class="lead fw-normal text-white-50 mb-0">Os melhores produtos pra você — compra rápida!</p>
                     </div>
@@ -473,8 +477,8 @@ body.carrinho-aberto {
                         <p class="mb-1">Frete: <span id="valorFreteSelecionado" class="fw-bold"></span></p>
                         <p class="h5 fw-bold">Total: <span id="totalCompra" class="text-success"></span></p>
                         <p class="text-success mt-2">
-                            <i class="bi bi-tag-fill me-1"></i> À vista no PIX: 
-                            <strong id="valorPix"></strong> (desconto sujeito às regras configuradas no servidor InfinitePay)
+                            <i class="bi bi-tag-fill me-1"></i> Simulação de valor com desconto PIX: 
+                            <strong id="valorPix"></strong> (desconto aplicado pela InfinitePay quando habilitado no servidor)
                         </p>
                     </div>
                 </div>
@@ -526,10 +530,10 @@ body.carrinho-aberto {
                         <input type="url" id="configBackendInfinite" class="form-control" placeholder="https://meu-backend.exemplo.com">
                         <small class="text-muted">Informe o endereço do backend implantado. Nunca cole API Key aqui.</small>
                     </div>
-                    <div class="alert alert-info small">A InfinitePay mostra o QR Code PIX na página segura de pagamento. Desconto PIX no checkout é configurado no servidor.</div>
+                    <div class="alert alert-info small">A InfinitePay gera o QR Code PIX na página segura. A porcentagem abaixo é apenas uma prévia visual: o desconto real deve ser configurado na variável DESCONTO_PIX do Render.</div>
                     <hr>
                     <div class="mb-3">
-                        <label class="form-label fw-bold" for="descontoPixAdmin">Desconto no PIX (%)</label>
+                        <label class="form-label fw-bold" for="descontoPixAdmin">Desconto PIX desejado (%) — configure também DESCONTO_PIX no Render</label>
                         <input type="number" id="descontoPixAdmin" class="form-control" min="0" max="30" step="1" value="5">
                     </div>
                     <hr>
@@ -559,7 +563,7 @@ body.carrinho-aberto {
     <script>
         
         // Desativa caixas de alerta do navegador ("Esta página diz").
-        window.alert = function() {};
+        window.alert = function(msg) { mostrarAvisoLoja(String(msg)); };
 
         // 🔑 SENHA DO ADMINISTRADOR — TROQUE AQUI SE QUISER
         // Senha administrativa nunca deve ficar neste HTML: a validação ocorre no Render.
@@ -642,6 +646,19 @@ body.carrinho-aberto {
 
         firebase.auth().onAuthStateChanged(atualizarTelaLogin);
 
+        function mostrarAvisoLoja(msg) {
+            let el=document.getElementById('avisoLoja');
+            if(!el){el=document.createElement('div');el.id='avisoLoja';el.className='alert alert-warning position-fixed bottom-0 start-50 translate-middle-x';el.style.zIndex='3000';document.body.appendChild(el);}
+            el.textContent=msg;
+        }
+        function trocarLogoAdmin(event){
+            if(!modoAdmAtivo){event.target.value='';return;}
+            const file=event.target.files?.[0];
+            if(!file || !['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2*1024*1024){mostrarResultadoAdmin('Escolha PNG, JPG ou WebP com até 2 MB.');return;}
+            const reader=new FileReader();
+            reader.onload=()=>{try{localStorage.setItem('logoLojaLocal',reader.result);document.getElementById('logoLoja').src=reader.result;mostrarResultadoAdmin('Logo alterada neste navegador. Para todos os clientes, é necessário salvar a imagem no servidor.');}catch(e){mostrarResultadoAdmin('Imagem muito grande para salvar localmente.');}};
+            reader.readAsDataURL(file);
+        }
         // ========== FUNÇÕES DA LOJA ==========
         function formatarMoeda(valor) {
             if (valor === null || valor === undefined || isNaN(valor)) return '';
@@ -658,163 +675,35 @@ body.carrinho-aberto {
 
       
 
-        function salvarChavePixRapida() {
-            if (!modoAdmAtivo) return alert('❌ Apenas administrador!');
-            const chave = document.getElementById('chavePixRapida').value.trim();
-            if (!chave) return alert('Digite a chave primeiro!');
-            configLoja.pix.chave = chave;
-            localStorage.setItem("configLoja", JSON.stringify(configLoja));
-            atualizarExibicaoDados();
-            alert("✅ Chave PIX salva!");
-        }
-
-        function mensagemQrPix(texto) {
-            for (const id of ['statusQrCodePix', 'statusQrCodePagamento']) {
-                const alvo = document.getElementById(id);
-                if (alvo) alvo.textContent = texto;
-            }
-        }
-
-        function abrirSeletorQrPix() {
-            if (!modoAdmAtivo) return;
-            const campo = document.getElementById('qrCodePixImagem');
-            if (campo) { campo.value = ''; campo.click(); }
-        }
-
-        function salvarQrCodePix(event) {
-            const campo = event.target;
-            if (!modoAdmAtivo) {
-                campo.value = '';
-                return;
-            }
-            const arquivo = campo.files?.[0];
-            if (!arquivo) return;
-            if (!arquivo.type.startsWith('image/')) {
-                mensagemQrPix('Escolha uma imagem PNG, JPG ou WebP válida.');
-                campo.value = '';
-                return;
-            }
-            mensagemQrPix('Carregando QR Code...');
-            const leitor = new FileReader();
-            leitor.onerror = () => {
-                mensagemQrPix('Não foi possível ler a imagem escolhida.');
-                campo.value = '';
-            };
-            leitor.onload = () => {
-                const imagem = new Image();
-                imagem.onerror = () => {
-                    mensagemQrPix('A imagem escolhida não pôde ser aberta.');
-                    campo.value = '';
-                };
-                imagem.onload = () => {
-                    // Redimensiona apenas imagens grandes, evitando exceder o armazenamento do navegador.
-                    const maximo = 650;
-                    const escala = Math.min(1, maximo / Math.max(imagem.naturalWidth, imagem.naturalHeight));
-                    const canvas = document.createElement('canvas');
-                    canvas.width = Math.max(1, Math.round(imagem.naturalWidth * escala));
-                    canvas.height = Math.max(1, Math.round(imagem.naturalHeight * escala));
-                    const contexto = canvas.getContext('2d');
-                    if (!contexto) { mensagemQrPix('Não foi possível processar a imagem.'); return; }
-                    contexto.fillStyle = '#ffffff';
-                    contexto.fillRect(0, 0, canvas.width, canvas.height);
-                    contexto.imageSmoothingEnabled = false;
-                    contexto.drawImage(imagem, 0, 0, canvas.width, canvas.height);
-                    const imagemNova = canvas.toDataURL('image/png');
-                    const qrAnterior = configLoja.pix.qrCodeImagem;
-                    configLoja.pix.qrCodeImagem = imagemNova;
-                    try {
-                        localStorage.setItem('configLoja', JSON.stringify(configLoja));
-                        atualizarExibicaoDados();
-                        mensagemQrPix('QR Code atualizado e salvo neste navegador.');
-                    } catch (erro) {
-                        configLoja.pix.qrCodeImagem = qrAnterior;
-                        mensagemQrPix('Não há espaço suficiente para salvar a imagem. Use uma imagem menor.');
-                    }
-                    campo.value = '';
-                };
-                imagem.src = leitor.result;
-            };
-            leitor.readAsDataURL(arquivo);
-        }
         function carregarConfiguracoes() {
             try {
-                const dados = JSON.parse(localStorage.getItem("configLoja") || "null");
+                const dados=JSON.parse(localStorage.getItem('configLoja') || 'null');
                 if (dados) {
-                    configLoja.infinitepay = { backendUrl: dados.infinitepay?.backendUrl || "https://infinitepay-backend.onrender.com" };
-                    configLoja.pix = { chave: dados.pix?.chave || "", nome: dados.pix?.nome || "", qrCodeImagem: dados.pix?.qrCodeImagem || "" };
-                    configLoja.descontoPixPercent = Number.isFinite(Number(dados.descontoPixPercent)) ? Number(dados.descontoPixPercent) : 5;
+                    configLoja.infinitepay.backendUrl=dados.infinitepay?.backendUrl || 'https://infinitepay-backend.onrender.com';
+                    configLoja.descontoPixPercent=Number.isFinite(Number(dados.descontoPixPercent)) ? Number(dados.descontoPixPercent) : 5;
                 }
-            } catch (erro) { console.error("Erro ao carregar configurações:", erro); }
-            document.getElementById("configBackendInfinite").value = configLoja.infinitepay.backendUrl;
-            
-            
-            document.getElementById("descontoPixAdmin").value = configLoja.descontoPixPercent;
-            atualizarExibicaoDados();
-
+            } catch(e) { console.error('Configuração:',e); }
+            document.getElementById('configBackendInfinite').value=configLoja.infinitepay.backendUrl;
+            document.getElementById('descontoPixAdmin').value=configLoja.descontoPixPercent;
         }
-
         function salvarConfiguracoes() {
-    if (!modoAdmAtivo) return;
-    const valorDesconto = Number(document.getElementById("descontoPixAdmin").value);
-    if (isNaN(valorDesconto) || valorDesconto < 0 || valorDesconto > 30) {
-        return alert("Desconto deve ser entre 0 e 30%");
-    }
-    configLoja.descontoPixPercent = valorDesconto;
-
-    localStorage.setItem("configLoja", JSON.stringify(configLoja));
-
-    alert("✅ Configurações salvas!");
-    bootstrap.Modal.getInstance(document.getElementById('modalConfigLoja')).hide();
-}
-
-
-        function atualizarExibicaoDados() {
-            const previewConfig = document.getElementById("previewQrCodePix");
-            const semPreviewConfig = document.getElementById("semPreviewQrCodePix");
-            if (previewConfig && configLoja.pix.qrCodeImagem) {
-                previewConfig.src = configLoja.pix.qrCodeImagem;
-                previewConfig.style.display = "inline-block";
-                if (semPreviewConfig) semPreviewConfig.style.display = "none";
-            } else if (previewConfig) {
-                previewConfig.removeAttribute("src");
-                previewConfig.style.display = "none";
-                if (semPreviewConfig) semPreviewConfig.style.display = "block";
-            }
-
-            const areaQr = document.getElementById('areaQrCodePix');
-            if (areaQr) {
-                areaQr.replaceChildren();
-                if (configLoja.pix.qrCodeImagem) {
-                    const foto = document.createElement('img');
-                    foto.src = configLoja.pix.qrCodeImagem;
-                    foto.alt = 'QR Code para pagamento PIX';
-                    foto.style.cssText = 'width:220px;max-width:100%;height:auto;image-rendering:auto;border-radius:8px;';
-                    areaQr.appendChild(foto);
-                    const legenda = document.createElement('p');
-                    legenda.className = 'mt-2 text-muted small';
-                    legenda.textContent = 'Escaneie com a câmera do celular';
-                    areaQr.appendChild(legenda);
-                } else {
-                    const texto = document.createElement('p');
-                    texto.className = 'text-muted';
-                    texto.textContent = modoAdmAtivo ? 'Adicione uma imagem do QR Code PIX pelo botão abaixo.' : 'QR Code PIX ainda não disponível. Utilize a chave PIX.';
-                    areaQr.appendChild(texto);
-                }
-            }
-            
-            
-            const campoRapido = document.getElementById("chavePixRapida");
-            if (campoRapido && configLoja.pix.chave) {
-                campoRapido.value = configLoja.pix.chave;
-            }
+            if(!modoAdmAtivo)return;
+            const desconto=Number(document.getElementById('descontoPixAdmin').value);
+            if(!Number.isFinite(desconto)||desconto<0||desconto>30){mostrarResultadoAdmin('Desconto inválido.');return;}
+            const backend=document.getElementById('configBackendInfinite').value.trim().replace(/\/$/,'');
+            if(!/^https:\/\/[^\s]+$/.test(backend)){mostrarResultadoAdmin('Endereço HTTPS inválido.');return;}
+            configLoja.infinitepay.backendUrl=backend;
+            configLoja.descontoPixPercent=desconto;
+            localStorage.setItem('configLoja',JSON.stringify({infinitepay:configLoja.infinitepay,descontoPixPercent:desconto}));
+            bootstrap.Modal.getInstance(document.getElementById('modalConfigLoja'))?.hide();
+            mostrarResultadoAdmin('Preferências visuais salvas neste navegador. Para desconto real, altere DESCONTO_PIX no Render.');
         }
-
+        function atualizarExibicaoDados() { /* QR Code e PIX gerados pela InfinitePay */ }
         function abrirConfigLoja() {
-            if (!modoAdmAtivo) return alert('❌ Entre como administrador para acessar as configurações!');
+            if(!modoAdmAtivo)return;
             carregarConfiguracoes();
             new bootstrap.Modal(document.getElementById('modalConfigLoja')).show();
         }
-
 
         // O catálogo de cobrança é aprovado no servidor; nunca se confia em preços enviados pelo cliente.
         function exportarCatalogoInfinitePay() {
@@ -877,20 +766,6 @@ body.carrinho-aberto {
             }
         }
 
-        function pagarViaPix() {
-            const alvo = document.getElementById('areaQrCodePix');
-            if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            if (!configLoja.pix.qrCodeImagem && !configLoja.pix.chave) {
-                const status = document.getElementById('statusPagamentoPix');
-                if (status) status.textContent = 'Pagamento PIX não configurado pela loja.';
-            }
-        }
-
-        function copiarChavePix() {
-            if (!configLoja.pix.chave) return alert("Cadastre a chave PIX nas configurações primeiro!");
-            navigator.clipboard.writeText(configLoja.pix.chave).then(() => alert("✅ Chave copiada!"));
-        }
-
         function getClasseEstoque(qtd) {
             if (qtd === 0) return 'estoque-esgotado';
             if (qtd <= 5) return 'estoque-baixo';
@@ -918,7 +793,7 @@ body.carrinho-aberto {
 
                         <button type="button" class="btn btn-sm btn-light btn-trocar-foto"
                                 title="Escolher nova foto"
-                                onclick="if(modoAdmAtivo)document.getElementById('inputNovaFoto${id}').click()">
+                                onclick="document.getElementById('inputNovaFoto${id}').click()">
                             <i class="bi bi-camera-fill"></i> Trocar foto
                         </button>
 
@@ -1054,6 +929,7 @@ body.carrinho-aberto {
                 const img = document.getElementById(imgId);
                 if (img) img.src = imagem;
                 salvarProdutoNoStorage(id);
+                mostrarResultadoAdmin('Foto salva somente neste navegador. Para publicar a todos os clientes, precisamos integrar armazenamento de imagens no backend.');
                 event.target.value = '';
             };
             leitor.readAsDataURL(arquivo);
@@ -1151,6 +1027,7 @@ body.carrinho-aberto {
             document.body.classList.toggle('admin-logado', modoAdmAtivo);
             document.getElementById('btnConfigLoja')?.classList.toggle('d-none', !modoAdmAtivo);
             document.getElementById('btnSairAdm')?.classList.toggle('d-none', !modoAdmAtivo);
+            aplicarVisibilidadeBotaoTroca();
         }
         function sairAdministrador() {
             sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
@@ -1236,6 +1113,9 @@ body.carrinho-aberto {
 
         function adicionarAoCarrinho(id) {
             const p = produtos[id];
+            if(!p || !Number.isInteger(p.estoque) || p.estoque<=0){mostrarAvisoLoja('Produto esgotado.');return;}
+            const quantidade=carrinho.filter(item=>String(item.id)===String(id)).length;
+            if(quantidade>=p.estoque){mostrarAvisoLoja('Quantidade indisponível no estoque.');return;}
             carrinho.push({ id: id, nome: p.nome, preco: p.precoAtual });
             alert(`✅ "${p.nome}" adicionado ao carrinho!`);
             atualizarCarrinho();
@@ -1376,86 +1256,6 @@ function abrirModalSenhaAdm() {
 
 
 
-
-        // Imagens sincronizadas com o Firestore: só o servidor aceita alteração autenticada.
-        // Redimensiona e ajusta a qualidade para caber no limite do Firestore.
-        async function imagemCompactada(arquivo, limite=900, qualidade=.82) {
-            if (!arquivo || !arquivo.type.startsWith('image/')) throw new Error('Selecione uma imagem PNG, JPG ou WebP.');
-            const img = new Image(), url=URL.createObjectURL(arquivo);
-            try {
-                await new Promise((ok,erro)=>{img.onload=ok;img.onerror=()=>erro(new Error('Não foi possível abrir esta imagem.'));img.src=url;});
-                const maximo=600000;
-                let lado=limite;
-                for(let tentativa=0;tentativa<9;tentativa++) {
-                    const escala=Math.min(1,lado/Math.max(img.naturalWidth,img.naturalHeight));
-                    const canvas=document.createElement('canvas');
-                    canvas.width=Math.max(1,Math.round(img.naturalWidth*escala));
-                    canvas.height=Math.max(1,Math.round(img.naturalHeight*escala));
-                    const ctx=canvas.getContext('2d');
-                    if(!ctx)throw new Error('Seu navegador não conseguiu processar a foto.');
-                    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
-                    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-                    const dados=canvas.toDataURL('image/jpeg',Math.max(.45,qualidade-tentativa*.045));
-                    if(dados.length<=maximo)return dados;
-                    lado=Math.round(lado*.8);
-                }
-                throw new Error('Não foi possível compactar a foto. Tente outra imagem.');
-            } finally {URL.revokeObjectURL(url);}
-        }
-        window.trocarFoto=async function(event,imgId,id){
-            const campo=event.target;
-            const botao=campo.previousElementSibling;
-            const original=botao?.innerHTML;
-            const avisar=(mensagem,erro=false)=>{
-                mostrarResultadoAdmin(mensagem);
-                let aviso=document.getElementById('avisoFoto'+id);
-                if(!aviso){aviso=document.createElement('div');aviso.id='avisoFoto'+id;aviso.setAttribute('role','status');aviso.className='small p-2';campo.parentElement.appendChild(aviso);}
-                aviso.className='small p-2 '+(erro?'text-danger bg-light':'text-success bg-light');
-                aviso.textContent=mensagem;
-            };
-            if(!modoAdmAtivo){avisar('Entre como administrador para alterar a foto.',true);campo.value='';return;}
-            if(!produtosOnlineCarregados){avisar('O catálogo online não carregou. Verifique a conexão com o Render e atualize a página.',true);campo.value='';return;}
-            if(!campo.files?.[0])return;
-            if(botao){botao.disabled=true;botao.textContent='Enviando foto...';}
-            try {
-                const foto=await imagemCompactada(campo.files[0]);
-                await requisicaoAdmin('/api/admin/produtos/'+id+'/imagem','PUT',{foto});
-                // Atualização imediata; sincronização com Firestore logo em seguida.
-                if(produtos[id])produtos[id].foto=foto;
-                const imagem=document.getElementById(imgId);
-                if(imagem)imagem.src=foto;
-                avisar('Foto salva no servidor. Atualizando catálogo...');
-                await sincronizarProdutosOnline();
-                if(produtos[id]?.foto===foto) avisar('Foto publicada para todos os clientes.');
-                else avisar('Foto enviada, mas a atualização do catálogo ainda não foi confirmada. Atualize a página para conferir.',true);
-            }catch(e){
-                console.error('Falha ao enviar foto:',e);
-                avisar('Não foi possível salvar a foto: '+(e.message||String(e)),true);
-            }finally{campo.value='';if(botao){botao.disabled=false;botao.innerHTML=original;}}
-        };
-        async function salvarLogoOnline(event){
-            if(!modoAdmAtivo){mostrarResultadoAdmin('Entre como administrador para trocar o logotipo.');return;}
-            if(!event.target.files?.[0])return;
-            mostrarResultadoAdmin('Enviando logotipo...');
-            try {const logo=await imagemCompactada(event.target.files?.[0],600);
-                await requisicaoAdmin('/api/admin/aparencia','PUT',{logo});
-                document.getElementById('logoLoja').src=logo;mostrarResultadoAdmin('Logotipo publicado.');
-            }catch(e){console.error('Logotipo:',e);mostrarResultadoAdmin('Erro ao salvar logotipo: '+e.message);}finally{event.target.value='';}
-        }
-        async function salvarPixProdutoOnline(event,id){
-            if(!modoAdmAtivo)return;
-            try {const pixQr=await imagemCompactada(event.target.files?.[0],520,.85);
-                await requisicaoAdmin('/api/admin/produtos/'+id+'/pix','PUT',{pixQr});
-                await sincronizarProdutosOnline();mostrarResultadoAdmin('QR PIX manual vinculado somente a este produto.');
-            }catch(e){mostrarResultadoAdmin(e.message);}finally{event.target.value='';}
-        }
-        async function carregarLogoOnline(){
-            try {const r=await fetch(urlCatalogo()+'/api/aparencia');if(!r.ok)return;
-                const d=await r.json();if(d.logo)document.getElementById('logoLoja').src=d.logo;
-            }catch(e){console.warn('Logo online:',e.message);}
-        }
-        document.addEventListener('DOMContentLoaded',carregarLogoOnline);
-
         // ================= CATÁLOGO ONLINE / FIRESTORE =================
         const URL_BACKEND_PADRAO = 'https://infinitepay-backend.onrender.com';
         function urlCatalogo() {
@@ -1497,7 +1297,7 @@ function abrirModalSenhaAdm() {
                     lista[id] = {
                         nome:p.nome, precoAtual:p.precoCentavos/100,
                         precoAntigo:null, estoque:Number.isInteger(p.estoque)?p.estoque:50,
-                        foto:p.foto || produtos[id]?.foto || localStorage.getItem('produto'+id+'Foto') || FOTO_PADRAO, alturaFoto:p.alturaFoto || produtos[id]?.alturaFoto || 180, ajusteFoto:p.ajusteFoto || produtos[id]?.ajusteFoto || 'cover', pixQr:p.pixQr || produtos[id]?.pixQr || ''
+                        foto:p.foto || FOTO_PADRAO, alturaFoto:180, ajusteFoto:'cover'
                     };
                 }
                 produtos = lista;
@@ -1577,6 +1377,8 @@ function abrirModalSenhaAdm() {
             sincronizarProdutosOnline();
             verificarLinkAutomatico();
             carregarFundoCabecalho();
+            const logoLocal=localStorage.getItem('logoLojaLocal');
+            if(logoLocal)document.getElementById('logoLoja').src=logoLocal;
             if (tokenAdmin()) {
                 confirmarAdminServidor().then(()=>definirInterfaceAdmin(true)).catch(()=>definirInterfaceAdmin(false));
             }
@@ -1611,7 +1413,7 @@ function aplicarVisibilidadeBotaoTroca() {
     
     // Aplica em todos os botões
     document.querySelectorAll('.btn-trocar-foto').forEach(btn => {
-        btn.style.display = ligado && modoAdmAtivo ? 'block' : 'none';
+        btn.style.display = (modoAdmAtivo && ligado) ? 'block' : 'none';
     });
 }
 // Atualização da loja
