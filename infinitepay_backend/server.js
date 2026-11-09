@@ -24,7 +24,7 @@ try {
   console.error('Firebase Admin inválido:',e.message);
 }
 
-function imagemValida(s){return typeof s==='string'&&s.length<350000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s);}
+function imagemValida(s){return typeof s==='string'&&s.length<=650000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s);}
 function cors(req){
   const origem = req.headers.origin || '';
 
@@ -35,7 +35,7 @@ function cors(req){
   return !SITE_ORIGIN || origem === SITE_ORIGIN;
 }
 function json(req,res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':SITE_ORIGIN||'null','Vary':'Origin','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
-function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>550000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
+function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>750000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
 // Sessões de administração temporárias, assinadas e verificadas no servidor.
 // Configure ADMIN_PASSWORD (senha forte) e ADMIN_SESSION_SECRET (aleatório, 32+ caracteres) no Render.
 const tentativasFalhas = new Map();
