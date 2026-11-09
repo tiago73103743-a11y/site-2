@@ -20,8 +20,15 @@ try {
     admin.initializeApp({credential:admin.credential.cert(conta)});
     db=admin.firestore();
   } else console.warn('Firestore não configurado; edição online desabilitada.');
-} catch(e){console.error('Firebase Admin inválido:',e.message);}
-function cors(req){const origem=req.headers.origin||'';return !SITE_ORIGIN||origem===SITE_ORIGIN;}
+} catch(e){console.error('Firebase Admin inválido:',e.message);}function cors(req){
+  const origem = req.headers.origin || '';
+
+  if (!origem && req.method === 'GET' && req.url === '/health') {
+    return true;
+  }
+
+  return !SITE_ORIGIN || origem === SITE_ORIGIN;
+}
 function json(req,res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':SITE_ORIGIN||'null','Vary':'Origin','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
 function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>30000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
 // Sessões de administração temporárias, assinadas e verificadas no servidor.
