@@ -20,7 +20,7 @@ try {
     admin.initializeApp({credential:admin.credential.cert(conta)});
     db=admin.firestore();
   } else console.warn('Firestore não configurado; edição online desabilitada.');
-} } catch(e){
+ } catch(e){
   console.error('Firebase Admin inválido:',e.message);
 }
 
