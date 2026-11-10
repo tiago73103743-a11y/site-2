@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Loja - Compre Agora</title>
+
+    <!-- ✅ FIREBASE -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyClY_QixJAk8TzB8dh9tjC7Hvha-WRpU-4",
+        authDomain: "e-mail-2fc5e.firebaseapp.com",
+        projectId: "e-mail-2fc5e",
+        storageBucket: "e-mail-2fc5e.firebasestorage.app",
+        messagingSenderId: "380410495404",
+        appId: "1:380410495404:web:a6efba28de4d4bb3513a09"
+      };
+      firebase.initializeApp(firebaseConfig);
+    </script>
+    <!-- ✅ FIM DO FIREBASE -->
+
+    <link rel="icon" type="image/svg+xml" href="assets/logo-padrao.svg" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
+
+    <style>
+
+/* Carrinho Lateral Direita */
+:root {
+  --carrinho-largura: 340px;
+}
+
+body.carrinho-aberto {
+  padding-right: var(--carrinho-largura);
+}
+@media (max-width: 700px) {
+  :root { --carrinho-largura: min(340px, 100vw); }
+  body.carrinho-aberto { padding-right: 0; }
+}
+
+.carrinho-lateral {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--carrinho-largura);
+  height: 100vh;
+  background: #fff;
+  border-left: 1px solid #e5e5e5;
+  box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+}
+
+.carrinho-lateral.aberto {
+  transform: translateX(0);
+}
+
+.carrinho-cabecalho {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.carrinho-conteudo {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.carrinho-rodape {
+  padding: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.item-carrinho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.item-controles {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quantidade {
+  min-width: 24px;
+  text-align: center;
+  font-weight: bold;
+}
+
+
+        :root {
+            --bg-imagem: linear-gradient(135deg, #214e68, #458b88);
+        }
+        body {
+            background: linear-gradient(rgba(255,255,255, 0.85), rgba(255,255,255, 0.85)), var(--bg-imagem);
+            background-attachment: fixed;
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+        }
+        .whatsapp-float {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            background-color: #25d366;
+            color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.2s ease;
+        }
+        .whatsapp-float:hover {
+            transform: scale(1.1);
+            color: white;
+        }
+        .btn-success {
+            background-color: #25d366;
+            border-color: #25d366;
+        }
+        .btn-success:hover {
+            background-color: #20ba5a;
+            border-color: #20ba5a;
+        }
+     .admin-secreto {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 45px;
+    height: 45px;
+    cursor: pointer;
+    opacity: 1;  /* ✅ Agora VISÍVEL */
+    z-index: 999;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    font-size: 1.3rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+}
+.admin-secreto:hover {
+    background: #25d366;
+    color: white;
+    transform: rotate(30deg);
+}
+
+
+        .painel-adm {
+            display: none;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .admin-apenas { display:none; }
+        .admin-logado .admin-apenas { display:inline-block; }
+        .admin-logado .painel-adm {
+            display: block;
+        }
+        .admin-logado #btnConfigLoja { display: inline-flex !important; align-items:center; gap:6px; }
+        .foto-produto {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px 8px 0 0;
+            height: 180px;
+            width: 100%;
+        }
+        .foto-produto img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transition: transform 0.3s ease;
+        }
+        .foto-produto:hover img {
+            transform: scale(1.03);
+        }
+      .btn-trocar-foto {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    z-index: 10;
+    display: none;
+}
+/* Só aparece se admin estiver logado E tiver ativado */
+.admin-logado .btn-trocar-foto {
+    display: block;
+}
+.botao-troca-desativado .btn-trocar-foto {
+    display: none !important;
+}
+
+        .admin-logado .btn-trocar-foto {
+            display: block;
+        }
+        .painel-tamanho-foto {
+            margin-top: 0.5rem;
+            display: none;
+        }
+        .admin-logado .painel-tamanho-foto {
+            display: block;
+        }
+        .input-tamanho-foto {
+            max-width: 80px;
+            display: inline-block;
+        }
+        .estoque-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+        .estoque-normal { background: #d1e7dd; color: #0f5132; }
+        .estoque-baixo { background: #fff3cd; color: #856404; }
+        .estoque-esgotado { background: #f8d7da; color: #842029; }
+        .btn-editar, .btn-excluir { display: none; }
+        .admin-logado .btn-editar, .admin-logado .btn-excluir { display: inline-block; }
+        .cabecalho-fundo {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), var(--bg-imagem);
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+        .btn-trocar-cabecalho {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: none;
+            z-index: 10;
+        }
+        .admin-logado .btn-trocar-cabecalho {
+            display: block;
+        }
+        .frete-option {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .frete-option:hover, .frete-option.selected {
+            border-color: #25d366;
+            background-color: #f0fff4;
+        }
+        .area-qr-admin {
+            display: none;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #e8f5e9;
+            border-radius: 8px;
+            border: 1px solid #c8e6c9;
+        }
+        .admin-logado .area-qr-admin {
+            display: block;
+        }
+        .pix-copia {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pix-copia:hover {
+            background-color: #d4edda !important;
+        }
+        .login-card {
+            max-width: 450px;
+            margin: 2rem auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .usuario-logado {
+            display: none;
+        }
+        .logado .form-login {
+            display: none;
+        }
+        .logado .usuario-logado {
+            display: block;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <!-- 🔐 ÁREA DE LOGIN -->
+    <section class="py-3">
+        <div class="container">
+            <div id="areaLogin" class="login-card card p-4">
+                
+                <!-- NÃO LOGADO — digita e-mail -->
+                <div class="form-login" id="telaEntrada">
+                    <h5 class="text-center mb-3"><i class="bi bi-box-arrow-in-right me-2"></i>Acess</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Seu e-mail</label>
+                        <input type="email" id="emailLogin" class="form-control" placeholder="seu@email.com">
+                    </div>
+                    <button class="btn btn-success w-100" onclick="enviarLinkLogin()">
+                        <i class="bi bi-send me-1"></i> Entrar / Cadastrar
+                    </button>
+                    <p class="text-muted small mt-3 text-center">
+                        Vai receber um acesso no e-mail — é só clicar e entrar!
+                    </p>
+                </div>
+
+                <!-- JÁ LOGADO — entra direto sem pedir nada -->
+                <div class="usuario-logado text-center">
+                    <h6 class="mb-2">Bem-vindo(a)! ✅</h6>
+                    <p id="emailUsuario" class="text-muted mb-3"></p>
+                    <button class="btn btn-outline-danger" onclick="sairLogin()">
+                        <i class="bi bi-box-arrow-right me-1"></i> Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+   <div class="admin-secreto" onclick="abrirModalSenhaAdm()" title="Área Administrativa">
+    <i class="bi bi-gear"></i>
+</div>
+
+
+
+    <a href="https://wa.me/5531973124354" target="_blank" class="whatsapp-float" title="Fale pelo WhatsApp">
+        <i class="bi bi-whatsapp"></i>
+    </a>
+    
+    <div id="avisoPagamento" class="container mt-3 d-none" role="status" aria-live="polite"></div>
+    <header id="cabecalhoPrincipal" class="cabecalho-fundo py-5">
+        <div class="container px-4 px-lg-5 position-relative">
+            <button type="button" class="btn btn-sm btn-light btn-trocar-cabecalho"
+                    onclick="document.getElementById('inputCabecalhoFoto').click()">
+                <i class="bi bi-image"></i> Trocar Fundo
+            </button>
+            <input type="file" id="inputCabecalhoFoto" accept="image/*" class="d-none"
+                   onchange="trocarFundoCabecalho(event)">
+            
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-4">
+                    <img id="logoLoja" src="assets/logo-padrao.svg" alt="Logotipo" class="img-fluid rounded-circle" style="width:100px;height:100px;object-fit:cover;">
+                    <div class="text-white">
+                        <button type="button" class="btn btn-sm btn-light mb-2 admin-apenas" onclick="document.getElementById('inputLogoAdmin').click()"><i class="bi bi-camera"></i> Trocar logotipo</button>
+                        <input id="inputLogoAdmin" type="file" accept="image/png,image/jpeg,image/webp" class="d-none" onchange="trocarLogoAdmin(event)">
+                        <h1 class="display-4 fw-bolder">Compre com estilo</h1>
+                        <p class="lead fw-normal text-white-50 mb-0">Os melhores produtos pra você — compra rápida!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <section class="py-3 bg-light border-bottom">
+        <div class="container px-4 px-lg-5">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" id="buscaProdutos" class="form-control border-start-0" 
+                               placeholder="Buscar produtos..." oninput="filtrarProdutos(this.value)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="py-5">
+        <div class="container px-4 px-lg-5 mt-5">
+            <h2 class="text-center mb-4">Nossos Produtos</h2>
+            <div id="painelAdm" class="painel-adm">
+                <div class="d-flex align-items-center justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-gear-wide-connected me-2"></i>Painel Administrativo</h5>
+                    <button id="btnAdicionarProduto" class="btn btn-success" onclick="adicionarNovoProduto()">
+                        <i class="bi bi-plus-lg me-1"></i> Adicionar Produto
+                    </button>
+                </div>
+                <button type="button" class="btn btn-primary my-3 w-100" onclick="abrirConfigLoja()">
+                    <i class="bi bi-gear-fill me-2"></i> Abrir Configurações da Loja / InfinitePay
+                </button>
+                <div class="small text-success mb-2" id="statusCatalogoOnline">As fotos e os dados dos produtos são carregados pelo servidor.</div>
+                <p class="small text-muted mb-2">Preços e produtos são sincronizados com o banco de dados do servidor. Não é necessário editar o GitHub.</p>
+                <div id="controleBotaoTrocaFoto" class="mb-3 p-2 bg-light rounded border">
+    <h6 class="mb-2"><i class="bi bi-camera"></i> Botão "Trocar Foto" dos Produtos</h6>
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="mostrarBotaoTrocaFoto" onchange="alternarBotaoTrocaFoto()">
+        <label class="form-check-label fw-normal" for="mostrarBotaoTrocaFoto">
+            Exibir botão "Trocar" nas fotos dos produtos
+        </label>
+    </div>
+</div>
+
+            </div>
+            <div id="listaProdutos" class="row gx-4 gx-lg-5 row-cols-2 row-cols-md-3 row-cols-xl-4 justify-content-center">
+            </div>
+        </div>
+    </section>
+
+    <!-- CARRINHO -->
+    <section class="py-4 bg-light border-top d-none" id="secaoCarrinho">
+      <div class="container px-4 px-lg-5">
+        <h4 class="mb-3"><i class="bi bi-cart"></i> Meu Carrinho</h4>
+        <div id="listaCarrinho" class="mb-3"></div>
+        <div class="d-flex justify-content-between align-items-center">
+          <h5>Total: <span id="totalCarrinho" class="text-success">R$ 0,00</span></h5>
+          <div>
+            <button class="btn btn-outline-secondary me-2" onclick="limparCarrinho()">Limpar</button>
+            <button class="btn btn-success" onclick="finalizarCompraCarrinho()">Finalizar Compra</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <aside id="carrinhoLateral" class="carrinho-lateral" aria-label="Carrinho de compras">
+      <div class="carrinho-cabecalho"><h5 class="mb-0">Meu carrinho</h5><button class="btn-close" onclick="fecharCarrinho()"></button></div>
+      <div id="carrinhoItens" class="carrinho-conteudo"><p class="text-muted text-center">Seu carrinho está vazio</p></div>
+      <div class="carrinho-rodape">
+        <div class="d-flex justify-content-between mb-3"><strong>Total:</strong><strong id="carrinhoValorTotal">R$ 0,00</strong></div>
+        <button class="btn btn-success w-100" onclick="irParaCompra()">Continuar compra</button>
+      </div>
+    </aside>
+
+    <!-- MODAL DE COMPRA -->
+<div class="modal fade" id="modalCompra" tabindex="-1" aria-labelledby="modalCompraLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalCompraLabel">
+                    <i class="bi bi-cart-check me-2"></i>Finalizar Compra
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+
+                <h6 id="nomeProdutoCompra" class="fw-bold"></h6>
+                <p>Preço: <strong id="valorProdutoCompra"></strong></p>
+                <h6>Entrega</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4"><label class="frete-option d-block selected" data-valor="0" data-nome="Retirada no Local" onclick="selecionarFrete(this)"><input type="radio" name="frete" id="frete1" checked> Retirada — Grátis</label></div>
+                    <div class="col-md-4"><label class="frete-option d-block" data-valor="8.90" data-nome="Correios" onclick="selecionarFrete(this)"><input type="radio" name="frete"> Correios — R$ 8,90</label></div>
+                    <div class="col-md-4"><label class="frete-option d-block" data-valor="14.90" data-nome="Entrega" onclick="selecionarFrete(this)"><input type="radio" name="frete"> Entrega — R$ 14,90</label></div>
+                </div>
+            <!-- ÁREA DE PAGAMENTO -->
+            <!-- COLOQUE ISSO DEPOIS DA ÁREA DO PIX no modalCompra -->
+<hr>
+<div class="d-grid gap-2 mt-3">
+    <button class="btn btn-success btn-lg" id="btnCheckoutInfinite" onclick="pagarInfinitePay()">
+        <i class="bi bi-credit-card me-2"></i>Pagar com InfinitePay (PIX ou cartão)
+    </button>
+    <div id="statusInfinitePay" class="small text-muted" role="status"></div>
+   
+    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">
+        <i class="bi bi-arrow-left me-1"></i>Voltar
+    </button>
+</div>
+
+                
+                <hr>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="mb-1">Subtotal: <span id="subtotalCompra" class="fw-bold"></span></p>
+                        <p class="mb-1">Frete: <span id="valorFreteSelecionado" class="fw-bold"></span></p>
+                        <p class="h5 fw-bold">Total: <span id="totalCompra" class="text-success"></span></p>
+                        <p class="text-success mt-2">
+                            <i class="bi bi-tag-fill me-1"></i> Simulação de valor com desconto PIX: 
+                            <strong id="valorPix"></strong> (desconto aplicado pela InfinitePay quando habilitado no servidor)
+                        </p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- ÁREA PIX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+
+    <!-- MODAL SENHA ADM -->
+    <div class="modal fade" id="modalSenhaAdm" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Acesso Restrito</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Digite a senha exclusiva do administrador. O acesso dos clientes por e-mail é independente.</p>
+                <div class="mb-3">
+                    <input type="password" class="form-control" id="senhaAdm" placeholder="Senha do administrador" autocomplete="current-password" onkeydown="if(event.key==='Enter')verificarSenhaAdm()">
+                </div>
+                <button type="button" class="btn btn-dark w-100" onclick="verificarSenhaAdm()">Entrar como administrador</button>
+                <div id="erroSenha" class="alert alert-danger d-none mt-3">Senha incorreta!</div>
+                <button type="button" id="btnSairAdm" class="btn btn-outline-danger w-100 mt-2 d-none" onclick="sairAdministrador()">Sair da administração</button>
+
+            </div>
+        </div>
+    </div>
+</div>
+        
+
+    <!-- MODAL CONFIGURAÇÕES -->
+    <div class="modal fade" id="modalConfigLoja" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-gear me-2"></i>Configurações da Loja</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="fw-bold mb-2">Checkout InfinitePay</h6>
+                    <div class="mb-2">
+                        <label class="form-label">Endereço do servidor de pagamentos</label>
+                        <input type="url" id="configBackendInfinite" class="form-control" placeholder="https://meu-backend.exemplo.com">
+                        <small class="text-muted">Informe o endereço do backend implantado. Nunca cole API Key aqui.</small>
+                    </div>
+                    <div class="alert alert-info small">A InfinitePay gera o QR Code PIX na página segura. A porcentagem abaixo é apenas uma prévia visual: o desconto real deve ser configurado na variável DESCONTO_PIX do Render.</div>
+                    <hr>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" for="descontoPixAdmin">Desconto PIX desejado (%) — configure também DESCONTO_PIX no Render</label>
+                        <input type="number" id="descontoPixAdmin" class="form-control" min="0" max="30" step="1" value="5">
+                    </div>
+                    <hr>
+                    <hr>
+                    <div class="d-grid">
+                        <button class="btn btn-primary" onclick="salvarConfiguracoes()">
+                            <i class="bi bi-check-lg me-1"></i> Salvar Configurações
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button id="btnConfigLoja" type="button" class="btn btn-primary d-none" style="position:fixed;right:18px;bottom:105px;z-index:1040;box-shadow:0 3px 14px rgba(0,0,0,.25);" onclick="abrirConfigLoja()">
+        <i class="bi bi-gear"></i> Configurações
+    </button>
+
+    <footer class="py-5 bg-dark">
+        <div class="container">
+            <p class="m-0 text-center text-white">Copyright &copy; Pequenos Estilos 2026</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        
+        // Desativa caixas de alerta do navegador ("Esta página diz").
+        window.alert = function(msg) { mostrarAvisoLoja(String(msg)); };
+
+        // 🔑 SENHA DO ADMINISTRADOR — TROQUE AQUI SE QUISER
+        // Senha administrativa nunca deve ficar neste HTML: a validação ocorre no Render.
+        const ESTOQUE_PADRAO = 50;
+        const FOTO_PADRAO = "assets/sem-foto.svg";
+        
+
+        let mp = null;
+        let modoAdmAtivo = false;
+        let proximoId = 1;
+        let produtos = {};
+        let produtoAtual = null;
+        let freteSelecionado = { valor: 0, nome: "Retirada no Local" };
+        let totalCompra = 0;
+        let carrinho = [];
+        let totalCarrinho = 0;
+       let configLoja = {
+    infinitepay: { backendUrl: "https://infinitepay-backend.onrender.com" },
+    pix: { chave: "", nome: "", qrCodeImagem: "" },
+    descontoPixPercent: 5 // valor padrão 5%
+};
+
+
+        // ========== LOGIN FIREBASE ==========
+        let emailSalvo = "";
+
+        function enviarLinkLogin() {
+            const email = document.getElementById('emailLogin').value.trim();
+            if (!email) return alert('Digite seu e-mail!');
+            
+            emailSalvo = email;
+            const actionCodeSettings = {
+                url: window.location.href,
+                handleCodeInApp: true
+            };
+
+            firebase.auth().sendSignInLinkToEmail(email, actionCodeSettings)
+                .then(() => {
+                    window.localStorage.setItem('emailParaLogin', email);
+                    alert('✅ Enviado! Verifique seu e-mail e clique no link para entrar!');
+                })
+                .catch(erro => {
+                    console.error(erro);
+                    alert('Erro: ' + erro.message);
+                });
+        }
+
+        function verificarLinkAutomatico() {
+            if (firebase.auth().isSignInWithEmailLink(window.location.href)) {
+                let email = window.localStorage.getItem('emailParaLogin');
+                if (!email) {
+                    email = prompt('Confirme seu e-mail:');
+                }
+                firebase.auth().signInWithEmailLink(email, window.location.href)
+                    .then(result => {
+                        window.localStorage.removeItem('emailParaLogin');
+                        atualizarTelaLogin(result.user);
+                        alert(`✅ Bem-vindo(a), ${result.user.email}! Da próxima vez entra direto!`);
+                    })
+                    .catch(erro => console.error('Erro login:', erro));
+            }
+        }
+
+        function sairLogin() {
+            firebase.auth().signOut().then(() => {
+                document.body.classList.remove('logado');
+                document.getElementById('emailLogin').value = '';
+                alert('✅ Saiu com sucesso! Quando voltar, digite seu e-mail novamente.');
+            });
+        }
+
+        function atualizarTelaLogin(usuario) {
+            if (usuario) {
+                document.body.classList.add('logado');
+                document.getElementById('emailUsuario').textContent = usuario.email;
+            } else {
+                document.body.classList.remove('logado');
+            }
+        }
+
+        firebase.auth().onAuthStateChanged(atualizarTelaLogin);
+
+        function mostrarAvisoLoja(msg) {
+            let el=document.getElementById('avisoLoja');
+            if(!el){el=document.createElement('div');el.id='avisoLoja';el.className='alert alert-warning position-fixed bottom-0 start-50 translate-middle-x';el.style.zIndex='3000';document.body.appendChild(el);}
+            el.textContent=msg;
+        }
+        // Logotipo é salvo pelo servidor. Nunca fica apenas no navegador.
+        async function trocarLogoAdmin(event) {
+            const campo=event.target;
+            const arquivo=campo.files && campo.files[0];
+            if(!arquivo)return;
+            if(!modoAdmAtivo || !produtosOnlineCarregados) {
+                mostrarResultadoAdmin('Entre como administrador e aguarde o catálogo carregar.');
+                campo.value='';return;
+            }
+            mostrarResultadoAdmin('Compactando e enviando o logotipo...');
+            try {
+                const logo=await imagemCompactada(arquivo,700);
+                await requisicaoAdmin('/api/admin/aparencia','PUT',{logo});
+                await carregarLogoOnline(true);
+                mostrarResultadoAdmin('Logotipo publicado para todos os clientes.');
+            } catch(e) {
+                console.error('Logotipo:',e);
+                mostrarResultadoAdmin('Falha ao publicar o logotipo: '+(e.message||String(e)));
+            } finally {campo.value='';}
+        }
+        // ========== FUNÇÕES DA LOJA ==========
+        function formatarMoeda(valor) {
+            if (valor === null || valor === undefined || isNaN(valor)) return '';
+            return 'R$ ' + Number(valor).toFixed(2).replace('.', ',');
+        }
+
+
+        function carregarFundoCabecalho() {
+            const fundoSalvo = localStorage.getItem('fundoCabecalho');
+            if (fundoSalvo) {
+                document.documentElement.style.setProperty('--bg-imagem', `url('${fundoSalvo}')`);
+            }
+        }
+
+      
+
+        function carregarConfiguracoes() {
+            try {
+                const dados=JSON.parse(localStorage.getItem('configLoja') || 'null');
+                if (dados) {
+                    configLoja.infinitepay.backendUrl=dados.infinitepay?.backendUrl || 'https://infinitepay-backend.onrender.com';
+                    configLoja.descontoPixPercent=Number.isFinite(Number(dados.descontoPixPercent)) ? Number(dados.descontoPixPercent) : 5;
+                }
+            } catch(e) { console.error('Configuração:',e); }
+            document.getElementById('configBackendInfinite').value=configLoja.infinitepay.backendUrl;
+            document.getElementById('descontoPixAdmin').value=configLoja.descontoPixPercent;
+        }
+        function salvarConfiguracoes() {
+            if(!modoAdmAtivo)return;
+            const desconto=Number(document.getElementById('descontoPixAdmin').value);
+            if(!Number.isFinite(desconto)||desconto<0||desconto>30){mostrarResultadoAdmin('Desconto inválido.');return;}
+            const backend=document.getElementById('configBackendInfinite').value.trim().replace(/\/$/,'');
+            if(!/^https:\/\/[^\s]+$/.test(backend)){mostrarResultadoAdmin('Endereço HTTPS inválido.');return;}
+            configLoja.infinitepay.backendUrl=backend;
+            configLoja.descontoPixPercent=desconto;
+            localStorage.setItem('configLoja',JSON.stringify({infinitepay:configLoja.infinitepay,descontoPixPercent:desconto}));
+            bootstrap.Modal.getInstance(document.getElementById('modalConfigLoja'))?.hide();
+            mostrarResultadoAdmin('Preferências visuais salvas neste navegador. Para desconto real, altere DESCONTO_PIX no Render.');
+        }
+        function atualizarExibicaoDados() { /* QR Code e PIX gerados pela InfinitePay */ }
+        function abrirConfigLoja() {
+            if(!modoAdmAtivo)return;
+            carregarConfiguracoes();
+            new bootstrap.Modal(document.getElementById('modalConfigLoja')).show();
+        }
+
+        // O catálogo de cobrança é aprovado no servidor; nunca se confia em preços enviados pelo cliente.
+        function exportarCatalogoInfinitePay() {
+            if (!modoAdmAtivo) return;
+            const catalogo = {};
+            for (const [id,p] of Object.entries(produtos)) {
+                const centavos = Math.round(Number(p.precoAtual) * 100);
+                if (!p.nome || !Number.isSafeInteger(centavos) || centavos < 100) continue;
+                catalogo[id] = {nome: String(p.nome), precoCentavos: centavos};
+            }
+            const blob = new Blob([JSON.stringify(catalogo,null,2)+'\n'], {type:'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'catalogo.json'; a.click();
+            setTimeout(()=>URL.revokeObjectURL(url),1000);
+        }
+
+        // O checkout sempre usa um servidor, que valida os preços do catálogo.
+        async function pagarInfinitePay() {
+            if(!produtosOnlineCarregados){mostrarAvisoLoja('Catálogo online indisponível.');return;}
+            const status = document.getElementById('statusInfinitePay');
+            const botao = document.getElementById('btnCheckoutInfinite');
+            const backend = (configLoja.infinitepay?.backendUrl || '').replace(/\/$/, '');
+            status.className = 'small text-danger';
+            if (!/^https:\/\/[^\s]+/i.test(backend)) {
+                status.textContent = 'Configure o endereço HTTPS do servidor InfinitePay nas configurações.';
+                return;
+            }
+            const lista = carrinho.length ? carrinho : (produtoAtual ? [{id: Object.keys(produtos).find(k => produtos[k] === produtoAtual),preco:produtoAtual.precoAtual}] : []);
+            if (!lista.length) {status.textContent='Carrinho vazio.';return;}
+            const quantidades = {};
+            let subtotalCentavos = 0;
+            for (const item of lista) {
+                const id=String(item.id);
+                if(!produtos[id]) {status.textContent='Produto não encontrado. Atualize a loja.';return;}
+                quantidades[id]=(quantidades[id]||0)+1;
+                subtotalCentavos+=Math.round(Number(produtos[id].precoAtual)*100);
+            }
+            const frete = freteSelecionado?.nome || 'Retirada no Local';
+            const totalEsperado = subtotalCentavos + Math.round(Number(freteSelecionado?.valor||0)*100);
+            botao.disabled=true;
+            status.className='small text-muted';
+            status.textContent='Consultando o valor seguro da compra...';
+            try {
+                const resp=await fetch(backend+'/api/checkout',{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({itens:Object.entries(quantidades).map(([id,quantidade])=>({id,quantidade})),frete,valorEsperadoCentavos:totalEsperado})
+                });
+                const dados=await resp.json();
+                if(!resp.ok) throw new Error(dados.error||'Não foi possível criar o pagamento.');
+                if(dados.valorCentavos!==totalEsperado) throw new Error('Diferença no valor da cobrança. Atualize o catálogo do servidor antes de pagar.');
+                const destino=new URL(dados.url);
+                if(destino.protocol!=='https:' || !/(^|\.)infinitepay\.(io|com\.br)$/.test(destino.hostname)) throw new Error('Link da InfinitePay inválido.');
+                status.className='small text-success';
+                status.textContent='Total confirmado: '+formatarMoeda(totalEsperado/100)+'. Abrindo InfinitePay...';
+                window.location.assign(destino.href);
+            } catch(e) {
+                status.className='small text-danger';
+                status.textContent=e instanceof TypeError?'Falha de conexão com o servidor. Confira CORS/SITE_ORIGIN e tente abrir a loja pelo GitHub Pages.':String(e.message||'Erro ao criar cobrança.');
+                botao.disabled=false;
+            }
+        }
+
+        function getClasseEstoque(qtd) {
+            if (qtd === 0) return 'estoque-esgotado';
+            if (qtd <= 5) return 'estoque-baixo';
+            return 'estoque-normal';
+        }
+
+        function getTextoEstoque(qtd) {
+            if (qtd === 0) return '<i class="bi bi-x-circle"></i> Esgotado!';
+            if (qtd <= 5) return `<i class="bi bi-exclamation-triangle"></i> Pouco disponível: ${qtd}`;
+            return `<i class="bi bi-box-seam"></i> Disponível: ${qtd}`;
+        }
+
+        function escaparHTML(valor) {
+            return String(valor).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function criarTemplateProduto(id) {
+            const p = produtos[id];
+            const idSeguro=Number(id);
+            if(!Number.isSafeInteger(idSeguro)||idSeguro<1)return '';
+            const precoAntigoHTML = p.precoAntigo 
+                ? `<span class="text-muted text-decoration-line-through me-1">${formatarMoeda(p.precoAntigo)}</span>`
+                : '';
+            return `
+            <div class="col mb-5 produto-card" id="colunaProduto${id}">
+               <div class="card h-100 ${localStorage.getItem('botaoTrocaFotoAtivo') === 'nao' ? 'botao-troca-desativado' : ''}">
+
+                    <div class="foto-produto" id="containerFoto${id}" style="height:${p.alturaFoto}px;">
+                        <img id="imgProduto${id}" src="${p.foto}" alt="Produto"
+                             style="height:100%;width:100%;object-fit:${p.ajusteFoto};" />
+
+                        <button type="button" class="btn btn-sm btn-light btn-trocar-foto"
+                                title="Escolher nova foto"
+                                onclick="document.getElementById('inputNovaFoto${id}').click()">
+                            <i class="bi bi-camera-fill"></i> Trocar foto
+                        </button>
+
+                        <input type="file" id="inputNovaFoto${id}" accept="image/*" class="d-none"
+                               onchange="trocarFoto(event, 'imgProduto${id}', ${id})">
+                    </div>
+                    <div class="painel-tamanho-foto px-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <label class="form-label mb-0 small">Altura:</label>
+                            <input type="number" class="form-control form-control-sm input-tamanho-foto" 
+                                   id="alturaFoto${id}" value="${p.alturaFoto}" min="80" max="400"
+                                   onchange="aplicarTamanhoFoto(${id})">
+                            <span class="small">px</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0 small">Modo:</label>
+                            <select class="form-select form-select-sm" id="modoAjuste${id}"
+                                    onchange="aplicarTamanhoFoto(${id})">
+                                <option value="cover" ${p.ajusteFoto==='cover'?'selected':''}>Cortar</option>
+                                <option value="contain" ${p.ajusteFoto==='contain'?'selected':''}>Ajustar</option>
+                                <option value="fill" ${p.ajusteFoto==='fill'?'selected':''}>Preencher</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="text-center">
+                            <h5 class="fw-bolder" id="nomeProduto${id}">${escaparHTML(p.nome)}</h5>
+                            <div class="d-flex justify-content-center gap-2 mb-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-editar"
+                                        onclick="editarCampo('nomeProduto${id}', ${id})">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-excluir"
+                                        onclick="excluirProduto(${id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="mb-2">
+                                <span id="badgeEstoque${id}" class="estoque-badge ${getClasseEstoque(p.estoque)}">
+                                    ${getTextoEstoque(p.estoque)}
+                                </span>
+                            </div>
+                            ${precoAntigoHTML}
+                            <strong id="precoAtual${id}" class="fs-5 text-success">
+                                ${formatarMoeda(p.precoAtual)}
+                            </strong>
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-editar me-1"
+                                        onclick="editarPrecos(${id})">Preços</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm btn-editar"
+                                        onclick="editarEstoque(${id})">Estoque</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+    <button class="btn btn-outline-success w-100" onclick="adicionarAoCarrinho(${id})">
+        <i class="bi-cart-plus me-1"></i> Adicionar ao Carrinho
+    </button>
+    <button class="btn btn-success w-100" onclick="abrirCarrinho()">
+        <i class="bi bi-cart3 me-1"></i> Ver Carrinho
+    </button>
+</div>
+
+                </div>
+            </div>`;
+        }
+
+        function salvarProdutoNoStorage(id) {
+            const p = produtos[id];
+            localStorage.setItem(`produto${id}Nome`, p.nome);
+            localStorage.setItem(`produto${id}PrecoAtual`, p.precoAtual);
+            if (p.precoAntigo !== null) {
+                localStorage.setItem(`produto${id}PrecoAntigo`, p.precoAntigo);
+                localStorage.setItem(`produto${id}TemAntigo`, 'sim');
+            } else {
+                localStorage.setItem(`produto${id}TemAntigo`, 'nao');
+                localStorage.removeItem(`produto${id}PrecoAntigo`);
+            }
+            localStorage.setItem(`produto${id}Estoque`, p.estoque);
+            localStorage.setItem(`produto${id}Foto`, p.foto);
+            localStorage.setItem(`produto${id}AlturaFoto`, p.alturaFoto);
+            localStorage.setItem(`produto${id}ModoAjuste`, p.ajusteFoto);
+            localStorage.setItem('ultimoIdProduto', String(proximoId - 1));
+        }
+
+        function carregarProdutoDoStorage(id) {
+            const prefix = `produto${id}`;
+            const nome = localStorage.getItem(`${prefix}Nome`);
+            if (!nome) return false;
+            const temAntigo = localStorage.getItem(`${prefix}TemAntigo`) === 'sim';
+            produtos[id] = {
+                nome: nome,
+                precoAtual: parseFloat(localStorage.getItem(`${prefix}PrecoAtual`) || '0'),
+                precoAntigo: temAntigo ? parseFloat(localStorage.getItem(`${prefix}PrecoAntigo`) || '0') : null,
+                estoque: parseInt(localStorage.getItem(`${prefix}Estoque`) || String(ESTOQUE_PADRAO), 10),
+                foto: localStorage.getItem(`${prefix}Foto`) || FOTO_PADRAO,
+                alturaFoto: parseInt(localStorage.getItem(`${prefix}AlturaFoto`) || '180', 10),
+                ajusteFoto: localStorage.getItem(`${prefix}ModoAjuste`) || 'cover'
+            };
+            return true;
+        }
+
+        function recarregarTodosProdutos() {
+            document.getElementById('listaProdutos').innerHTML = '';
+            let maxId = 0;
+            for (let i = 1; i <= 100; i++) {
+                if (carregarProdutoDoStorage(i)) {
+                    document.getElementById('listaProdutos').insertAdjacentHTML('beforeend', criarTemplateProduto(i));
+                    maxId = i;
+                }
+            }
+            proximoId = maxId + 1;
+        }
+
+        // Fotos e dimensões agora são gravadas no banco pelo módulo online, abaixo.
+        async function trocarFoto(event, imgId, id) {
+            const campo=event.target;
+            const arquivo=campo.files && campo.files[0];
+            if(!arquivo)return;
+            if(!modoAdmAtivo || !produtosOnlineCarregados) {
+                mostrarResultadoAdmin('Entre como administrador e aguarde o catálogo online.');
+                campo.value='';return;
+            }
+            const botao=campo.previousElementSibling;
+            const textoAnterior=botao?.innerHTML;
+            if(botao){botao.disabled=true;botao.textContent='Enviando foto...';}
+            enviosEmAndamento++;
+            try {
+                const foto=await imagemCompactada(arquivo,1200);
+                await requisicaoAdmin('/api/admin/produtos/'+id+'/imagem','PUT',{foto});
+                if(produtos[id])produtos[id].foto=foto;
+                const img=document.getElementById(imgId);
+                if(img)img.src=foto;
+                mostrarResultadoAdmin('Foto enviada. Confirmando publicação...');
+                await sincronizarProdutosOnline(true);
+                if(produtos[id]?.foto!==foto)throw new Error('O servidor ainda não confirmou a foto. Atualize a página e confira.');
+                mostrarResultadoAdmin('Foto publicada para todos os clientes.');
+            }catch(e){
+                console.error('Erro no envio de foto:',e);
+                mostrarResultadoAdmin('Não foi possível trocar a foto: '+(e.message||String(e)));
+            }finally{
+                enviosEmAndamento--;
+                campo.value='';
+                if(botao&&botao.isConnected){botao.disabled=false;botao.innerHTML=textoAnterior;}
+            }
+        }
+        async function aplicarTamanhoFoto(id) {
+            if(!modoAdmAtivo || !produtosOnlineCarregados)return;
+            const altura=Number(document.getElementById('alturaFoto'+id)?.value);
+            const modo=document.getElementById('modoAjuste'+id)?.value;
+            if(!Number.isSafeInteger(altura)||altura<80||altura>400||!['cover','contain','fill'].includes(modo)) {
+                mostrarResultadoAdmin('Altura deve estar entre 80 e 400 pixels.');return;
+            }
+            try {
+                await requisicaoAdmin('/api/admin/produtos/'+id+'/aparencia','PUT',{alturaFoto:altura,ajusteFoto:modo});
+                await sincronizarProdutosOnline(true);
+                mostrarResultadoAdmin('Tamanho da foto publicado.');
+            }catch(e){mostrarResultadoAdmin('Erro ao ajustar imagem: '+e.message);}
+        }
+        function adicionarNovoProduto() {
+            if (!modoAdmAtivo) return alert('❌ Acesso restrito!');
+            const nome = prompt('Nome do produto:');
+            if (!nome || !nome.trim()) return;
+            const precoAtual = prompt('Preço atual (ex: 10,00):');
+            if (!precoAtual) return;
+            const precoAntigo = prompt('Preço antigo — DEIXE EM BRANCO SE NÃO TIVER:');
+            if (precoAntigo === null) return;
+            const estoque = prompt('Quantidade em estoque:', ESTOQUE_PADRAO.toString());
+            if (estoque === null) return;
+            const novoId = proximoId++;
+            produtos[novoId] = {
+                nome: nome.trim(),
+                precoAtual: parseFloat(precoAtual.replace(',', '.')),
+                precoAntigo: precoAntigo?.trim() ? parseFloat(precoAntigo.replace(',', '.')) : null,
+                estoque: parseInt(estoque, 10),
+                foto: FOTO_PADRAO,
+                alturaFoto: 180,
+                ajusteFoto: 'cover'
+            };
+            salvarProdutoNoStorage(novoId);
+            document.getElementById('listaProdutos').insertAdjacentHTML('beforeend', criarTemplateProduto(novoId));
+            alert(`✅ "${nome}" adicionado!`);
+        }
+
+        function excluirProduto(id) {
+            if (!modoAdmAtivo) return;
+            if (!confirm(`Excluir "${produtos[id].nome}"?`)) return;
+            document.getElementById(`colunaProduto${id}`).remove();
+            Object.keys(localStorage).forEach(chave => {
+                if (chave.startsWith(`produto${id}`)) localStorage.removeItem(chave);
+            });
+            delete produtos[id];
+            alert('✅ Excluído!');
+        }
+
+        function editarCampo(elId, id) {
+            if (!modoAdmAtivo) return;
+            const novo = prompt('Novo nome:', produtos[id].nome);
+            if (!novo) return;
+            produtos[id].nome = novo.trim();
+            salvarProdutoNoStorage(id);
+            document.getElementById(elId).textContent = novo;
+        }
+
+        window.editarPrecos = function(id) {
+            if (!modoAdmAtivo) return;
+            const p = produtos[id];
+            const antigo = prompt('Preço antigo — DEIXE EM BRANCO PARA REMOVER:', 
+                p.precoAntigo ? p.precoAntigo.toFixed(2).replace('.', ',') : '');
+            if (antigo === null) return;
+            const atual = prompt('Preço atual:', p.precoAtual.toFixed(2).replace('.', ','));
+            if (!atual) return;
+            p.precoAntigo = antigo.trim() ? parseFloat(antigo.replace(',', '.')) : null;
+            p.precoAtual = parseFloat(atual.replace(',', '.'));
+            salvarProdutoNoStorage(id);
+            recarregarTodosProdutos();
+        }
+
+        function editarEstoque(id) {
+            if (!modoAdmAtivo) return;
+            const qtd = prompt('Nova quantidade:', produtos[id].estoque);
+            if (!qtd) return;
+            produtos[id].estoque = parseInt(qtd);
+            salvarProdutoNoStorage(id);
+            recarregarTodosProdutos();
+        }
+
+       
+     
+
+        // Autenticação do administrador separada do login de clientes.
+        const CHAVE_SESSAO_ADMIN = 'sessaoAdminRender';
+        function tokenAdmin() { return sessionStorage.getItem(CHAVE_SESSAO_ADMIN) || ''; }
+        function definirInterfaceAdmin(autorizado) {
+            modoAdmAtivo = !!autorizado;
+            document.body.classList.toggle('admin-logado', modoAdmAtivo);
+            document.getElementById('btnConfigLoja')?.classList.toggle('d-none', !modoAdmAtivo);
+            document.getElementById('btnSairAdm')?.classList.toggle('d-none', !modoAdmAtivo);
+            aplicarVisibilidadeBotaoTroca();
+        }
+        function sairAdministrador() {
+            sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
+            definirInterfaceAdmin(false);
+            document.getElementById('senhaAdm').value = '';
+            bootstrap.Modal.getInstance(document.getElementById('modalSenhaAdm'))?.hide();
+        }
+        async function verificarSenhaAdm() {
+            const erro = document.getElementById('erroSenha');
+            const campo = document.getElementById('senhaAdm');
+            const senha = campo.value;
+            erro.classList.add('d-none');
+            if (!senha) { erro.textContent = 'Digite a senha do administrador.'; erro.classList.remove('d-none'); return; }
+            try {
+                const r = await fetch(urlCatalogo() + '/api/admin/login', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({senha})
+                });
+                const dados = await r.json();
+                if (!r.ok || !dados.token) throw new Error(dados.error || 'Acesso negado.');
+                sessionStorage.setItem(CHAVE_SESSAO_ADMIN, dados.token);
+                definirInterfaceAdmin(true);
+                campo.value = '';
+                bootstrap.Modal.getInstance(document.getElementById('modalSenhaAdm'))?.hide();
+                await sincronizarProdutosOnline();
+            } catch(e) {
+                sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
+                definirInterfaceAdmin(false);
+                erro.textContent = e.message || 'Não foi possível verificar o acesso.';
+                erro.classList.remove('d-none');
+            }
+        }
+
+        function filtrarProdutos(termo) {
+            termo = termo.toLowerCase().trim();
+            document.querySelectorAll('.produto-card').forEach(card => {
+                const id = card.id.replace('colunaProduto', '');
+                card.style.display = produtos[id].nome.toLowerCase().includes(termo) ? 'block' : 'none';
+            });
+        }
+
+        function abrirModalCompra(id) {
+            produtoAtual = produtos[id];
+            freteSelecionado = { valor: 0, nome: "Retirada no Local" };
+            document.getElementById('nomeProdutoCompra').textContent = carrinho.length > 1 ? 'Seu carrinho (' + carrinho.length + ' itens)' : produtoAtual.nome;
+            document.getElementById('valorProdutoCompra').textContent = formatarMoeda(carrinho.length ? carrinho.reduce((s, i) => s + Number(i.preco), 0) : produtoAtual.precoAtual);
+
+            document.querySelectorAll('.frete-option').forEach(el => {
+                el.classList.remove('selected');
+                el.querySelector('input').checked = false;
+            });
+            document.querySelector('.frete-option[data-valor="0"]').classList.add('selected');
+            document.querySelector('#frete1').checked = true;
+
+            calcularTotal();
+            atualizarExibicaoDados();
+            new bootstrap.Modal(document.getElementById('modalCompra')).show();
+        }
+
+        function selecionarFrete(elemento) {
+            document.querySelectorAll('.frete-option').forEach(el => {
+                el.classList.remove('selected');
+                el.querySelector('input').checked = false;
+            });
+            elemento.classList.add('selected');
+            elemento.querySelector('input').checked = true;
+            freteSelecionado.valor = parseFloat(elemento.dataset.valor);
+            freteSelecionado.nome = elemento.dataset.nome;
+            calcularTotal();
+        }
+
+        function calcularTotal() {
+            const subtotal = carrinho.length ? carrinho.reduce((s, item) => s + Number(item.preco), 0) : produtoAtual.precoAtual;
+            totalCompra = subtotal + freteSelecionado.valor;
+            document.getElementById('subtotalCompra').textContent = formatarMoeda(subtotal);
+            document.getElementById('valorFreteSelecionado').textContent = formatarMoeda(freteSelecionado.valor);
+            document.getElementById('totalCompra').textContent = formatarMoeda(totalCompra);
+            document.getElementById('valorPix').textContent = formatarMoeda(totalCompra * (1 - configLoja.descontoPixPercent / 100));
+            const indicadorDesconto = document.getElementById('textoDescontoPix');
+            if(indicadorDesconto) indicadorDesconto.textContent = configLoja.descontoPixPercent;
+            atualizarExibicaoDados();
+        }
+
+        function adicionarAoCarrinho(id) {
+            if(!produtosOnlineCarregados){mostrarAvisoLoja('Catálogo indisponível. Atualize a página para comprar.');return;}
+            const p = produtos[id];
+            if(!p || !Number.isInteger(p.estoque) || p.estoque<=0){mostrarAvisoLoja('Produto esgotado.');return;}
+            const quantidade=carrinho.filter(item=>String(item.id)===String(id)).length;
+            if(quantidade>=p.estoque){mostrarAvisoLoja('Quantidade indisponível no estoque.');return;}
+            carrinho.push({ id: id, nome: p.nome, preco: p.precoAtual });
+            alert(`✅ "${p.nome}" adicionado ao carrinho!`);
+            atualizarCarrinho();
+        }
+
+        function atualizarCarrinho() {
+            const secao = document.getElementById('secaoCarrinho');
+            const lista = document.getElementById('listaCarrinho');
+            const totalElement = document.getElementById('totalCarrinho');
+
+            if (carrinho.length === 0) {
+                secao.classList.add('d-none');
+                return;
+            }
+
+            secao.classList.remove('d-none');
+            lista.innerHTML = '';
+            let total = 0;
+
+            carrinho.forEach((item, indice) => {
+                const subtotal = item.preco;
+                total += subtotal;
+                lista.innerHTML += `
+                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div>
+                        <h6 class="mb-0">${item.nome}</h6>
+                        <small class="text-muted">${formatarMoeda(item.preco)}</small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removerDoCarrinho(${indice})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>`;
+            });
+
+            totalElement.textContent = formatarMoeda(total);
+        }
+
+        function removerDoCarrinho(indice) {
+            carrinho.splice(indice, 1);
+            atualizarCarrinho();
+        }
+
+        function limparCarrinho() {
+            carrinho = [];
+            atualizarCarrinho();
+        }
+
+        function finalizarCompraCarrinho() {
+            if (carrinho.length === 0) return mostrarAvisoLoja('Carrinho vazio!');
+            abrirModalCompra(carrinho[0].id);
+        }
+
+        // ========== INICIALIZAÇÃO ==========
+        // 🛒 Funções do Carrinho Lateral
+function abrirCarrinho() {
+  document.getElementById('carrinhoLateral').classList.add('aberto');
+  document.body.classList.add('carrinho-aberto');
+  atualizarExibicaoCarrinho();
+}
+
+function fecharCarrinho() {
+  document.getElementById('carrinhoLateral').classList.remove('aberto');
+  document.body.classList.remove('carrinho-aberto');
+}
+
+function atualizarExibicaoCarrinho() {
+  const container = document.getElementById('carrinhoItens');
+  const totalEl = document.getElementById('carrinhoValorTotal');
+  
+  if (carrinho.length === 0) {
+    container.innerHTML = '<p class="text-muted text-center">Seu carrinho está vazio</p>';
+    totalEl.textContent = 'R$ 0,00';
+    return;
+  }
+
+  let total = 0;
+  const agrupado = {};
+  
+  carrinho.forEach(item => {
+    if (!agrupado[item.id]) agrupado[item.id] = { ...item, qtd: 0 };
+    agrupado[item.id].qtd++;
+    total += item.preco;
+  });
+
+  container.innerHTML = '';
+  Object.values(agrupado).forEach(item => {
+    container.innerHTML += `
+      <div class="item-carrinho">
+        <div>
+          <h6 class="mb-1">${item.nome}</h6>
+          <small class="text-muted">${formatarMoeda(item.preco)}</small>
+        </div>
+        <div class="item-controles">
+          <button class="btn btn-sm btn-outline-secondary" onclick="diminuirItem(${item.id})">-</button>
+          <span class="quantidade">${item.qtd}</span>
+          <button class="btn btn-sm btn-secondary" onclick="aumentarItem(${item.id})">+</button>
+        </div>
+      </div>
+    `;
+  });
+
+  totalEl.textContent = formatarMoeda(total);
+}
+
+function aumentarItem(id) {
+  adicionarAoCarrinho(id);
+}
+
+function diminuirItem(id) {
+  const idx = carrinho.findIndex(i => i.id === id);
+  if (idx !== -1) {
+    carrinho.splice(idx, 1);
+    atualizarExibicaoCarrinho();
+  }
+}
+
+function irParaCompra() {
+  if (carrinho.length === 0) return alert('Adicione itens primeiro!');
+  fecharCarrinho();
+  // Abre o modal do primeiro item ou monta compra com todos
+  const primeiroId = carrinho[0].id;
+  abrirModalCompra(primeiroId);
+}
+
+// Atualize a função existente
+const originalAdicionar = adicionarAoCarrinho;
+adicionarAoCarrinho = function(id) {
+  originalAdicionar(id);
+  abrirCarrinho(); // Abre a lateral automaticamente
+};
+
+function abrirModalSenhaAdm() {
+    document.getElementById('erroSenha').classList.add('d-none');
+    document.getElementById('senhaAdm').value = '';
+    document.getElementById('btnSairAdm')?.classList.toggle('d-none', !modoAdmAtivo);
+    new bootstrap.Modal(document.getElementById('modalSenhaAdm')).show();
+}
+
+
+
+        // Converte PNG/JPG/WebP em JPEG compacto aceito pelo Firestore e servidor.
+        async function imagemCompactada(arquivo,limite=1200) {
+            if(!arquivo || !['image/jpeg','image/png','image/webp'].includes(arquivo.type))
+                throw new Error('Escolha uma foto JPG, PNG ou WebP.');
+            if(arquivo.size>12*1024*1024)throw new Error('A foto original deve ter no máximo 12 MB.');
+            const imagem=new Image();
+            const url=URL.createObjectURL(arquivo);
+            try {
+                await new Promise((ok,erro)=>{
+                    imagem.onload=ok;
+                    imagem.onerror=()=>erro(new Error('Não foi possível abrir essa imagem.'));
+                    imagem.src=url;
+                });
+                if(!imagem.naturalWidth||!imagem.naturalHeight)throw new Error('Arquivo de imagem inválido.');
+                let tamanho=limite;
+                for(let n=0;n<9;n++){
+                    const escala=Math.min(1,tamanho/Math.max(imagem.naturalWidth,imagem.naturalHeight));
+                    const canvas=document.createElement('canvas');
+                    canvas.width=Math.max(1,Math.round(imagem.naturalWidth*escala));
+                    canvas.height=Math.max(1,Math.round(imagem.naturalHeight*escala));
+                    const ctx=canvas.getContext('2d');
+                    if(!ctx)throw new Error('Seu navegador não conseguiu compactar a foto.');
+                    ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+                    ctx.drawImage(imagem,0,0,canvas.width,canvas.height);
+                    const dados=canvas.toDataURL('image/jpeg',Math.max(.48,.85-n*.05));
+                    // JSON + cabeçalhos devem caber no limite de 750 KB do servidor.
+                    if(dados.length<=570000)return dados;
+                    tamanho=Math.max(220,Math.round(tamanho*.78));
+                }
+                throw new Error('Não foi possível reduzir esta foto. Tente uma imagem menor.');
+            }finally{URL.revokeObjectURL(url);}
+        }
+        let enviosEmAndamento=0;
+        let ultimaVersaoCatalogo='';
+        let sincronizacaoEmCurso=false;
+        async function carregarLogoOnline(conferir=false) {
+            const resposta=await fetch(urlCatalogo()+'/api/aparencia',{cache:'no-store'});
+            if(!resposta.ok)throw new Error('Falha ao consultar o logotipo no servidor: '+resposta.status);
+            const dados=await resposta.json();
+            const logo=(typeof dados.logo==='string'&&dados.logo.startsWith('data:image/jpeg;base64,'))?dados.logo:'assets/logo-padrao.svg';
+            document.getElementById('logoLoja').src=logo;
+            if(conferir && !dados.logo)throw new Error('O servidor não retornou o logotipo salvo.');
+            return logo;
+        }
+        // ================= CATÁLOGO ONLINE / FIRESTORE =================
+        const URL_BACKEND_PADRAO = 'https://infinitepay-backend.onrender.com';
+        function urlCatalogo() {
+            return (configLoja.infinitepay?.backendUrl || URL_BACKEND_PADRAO).replace(/\/$/, '');
+        }
+        async function confirmarAdminServidor() {
+            const token = tokenAdmin();
+            if (!token) throw new Error('Entre pela engrenagem usando sua senha administrativa.');
+            const r = await fetch(urlCatalogo()+'/api/admin/me', {headers:{Authorization:'Bearer '+token}});
+            const dado=await r.json();
+            if (!r.ok || !dado.admin) {
+                sessionStorage.removeItem(CHAVE_SESSAO_ADMIN);
+                definirInterfaceAdmin(false);
+                throw new Error(dado.error || 'Sessão expirada. Entre novamente como administrador.');
+            }
+            return token;
+        }
+        async function requisicaoAdmin(path, method, dado) {
+            const token = await confirmarAdminServidor();
+            const r = await fetch(urlCatalogo()+path, {
+                method, headers:{'Content-Type':'application/json', Authorization:'Bearer '+token},
+                body: JSON.stringify(dado)
+            });
+            const resp = await r.json();
+            if (!r.ok) throw new Error(resp.error || 'Não foi possível salvar no banco de dados.');
+            return resp;
+        }
+        let produtosOnlineCarregados = false;
+        async function sincronizarProdutosOnline(forcar=false) {
+            if(sincronizacaoEmCurso && !forcar)return;
+            if(enviosEmAndamento && !forcar)return;
+            const status=document.getElementById('statusCatalogoOnline');
+            sincronizacaoEmCurso=true;
+            try {
+                const resposta=await fetch(urlCatalogo()+'/api/produtos',{cache:'no-store'});
+                if(!resposta.ok)throw new Error('Servidor indisponível (HTTP '+resposta.status+').');
+                const dados=await resposta.json();
+                if(!dados.produtos || typeof dados.produtos!=='object')throw new Error('Catálogo inválido.');
+                const lista={};
+                for(const [id,p] of Object.entries(dados.produtos)){
+                    if(!/^\d+$/.test(id) || !p || !Number.isSafeInteger(p.precoCentavos) || !Number.isSafeInteger(p.estoque))continue;
+                    lista[id]={
+                        nome:String(p.nome||'Produto'),precoAtual:p.precoCentavos/100,
+                        precoAntigo:null,estoque:p.estoque,
+                        foto:p.foto||FOTO_PADRAO,
+                        alturaFoto:Number.isInteger(p.alturaFoto)?p.alturaFoto:180,
+                        ajusteFoto:['cover','contain','fill'].includes(p.ajusteFoto)?p.ajusteFoto:'cover'
+                    };
+                }
+                const novaVersao=JSON.stringify(lista);
+                produtosOnlineCarregados=true;
+                if(forcar || ultimaVersaoCatalogo!==novaVersao){
+                    produtos=lista;
+                    ultimaVersaoCatalogo=novaVersao;
+                    proximoId=Math.max(0,...Object.keys(produtos).map(Number))+1;
+                    const area=document.getElementById('listaProdutos');
+                    area.innerHTML='';
+                    Object.keys(produtos).forEach(id=>area.insertAdjacentHTML('beforeend',criarTemplateProduto(id)));
+                    aplicarVisibilidadeBotaoTroca();
+                    // Garante que o cliente não mantenha itens removidos/sem estoque no carrinho.
+                    const qtds={};
+                    carrinho=carrinho.filter(item=>{
+                        const p=produtos[item.id];
+                        if(!p)return false;
+                        qtds[item.id]=(qtds[item.id]||0)+1;
+                        return qtds[item.id]<=p.estoque;
+                    }).map(item=>({...item,nome:produtos[item.id].nome,preco:produtos[item.id].precoAtual}));
+                    atualizarCarrinho();
+                    if(document.getElementById('carrinhoLateral').classList.contains('aberto'))atualizarExibicaoCarrinho();
+                }
+                if(status && status.classList.contains('text-danger')){
+                    status.className='small text-success mb-2';
+                    status.textContent='Catálogo sincronizado com o servidor.';
+                }
+            }catch(e){
+                console.error('Catálogo:',e);
+                if(!produtosOnlineCarregados){
+                    produtos={};
+                    document.getElementById('listaProdutos').innerHTML='<p class="text-center text-danger">Loja temporariamente indisponível. Atualize a página para carregar os produtos.</p>';
+                }
+                if(status){status.className='small text-danger mb-2';status.textContent='Sem sincronização: '+e.message;}
+            }finally{sincronizacaoEmCurso=false;}
+        }
+        // As operações de preço e estoque exigem autenticação verificada no backend.
+        window.editarPrecos = async function(id) {
+            if (!modoAdmAtivo || !produtosOnlineCarregados) return;
+            const p=produtos[id];
+            const valor=prompt('Novo preço em reais (ex.: 40,00):',p.precoAtual.toFixed(2).replace('.',','));
+            if(valor===null)return;
+            const numero=Number(valor.trim().replace(',','.'));
+            const centavos=Math.round(numero*100);
+            if(!Number.isFinite(numero)||!Number.isSafeInteger(centavos)||centavos<100) {mostrarResultadoAdmin('Preço inválido.');return;}
+            try {
+                await requisicaoAdmin('/api/admin/produtos/'+id,'PUT',{precoCentavos:centavos});
+                await sincronizarProdutosOnline();
+                mostrarResultadoAdmin('Preço atualizado para todos os clientes.');
+            } catch(e) { mostrarResultadoAdmin(e.message); }
+        };
+        window.adicionarNovoProduto = async function() {
+            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
+            const nome=prompt('Nome do produto:');if(!nome?.trim())return;
+            const str=prompt('Preço em reais (ex.: 30,00):');if(str===null)return;
+            const precoCentavos=Math.round(Number(str.replace(',','.'))*100);
+            const estoque=Number(prompt('Quantidade em estoque:', '50'));
+            if(!Number.isSafeInteger(precoCentavos)||precoCentavos<100||!Number.isInteger(estoque)||estoque<0) {mostrarResultadoAdmin('Preço ou estoque inválido.');return;}
+            try {await requisicaoAdmin('/api/admin/produtos/'+proximoId,'PUT',{nome:nome.trim(),precoCentavos,estoque});await sincronizarProdutosOnline();mostrarResultadoAdmin('Produto cadastrado.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        window.editarCampo = async function(elId,id) {
+            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
+            const p=produtos[id], nome=prompt('Novo nome:',p.nome);
+            if(!nome?.trim())return;
+            try {await requisicaoAdmin('/api/admin/produtos/'+id,'PUT',{nome:nome.trim()});await sincronizarProdutosOnline();mostrarResultadoAdmin('Nome atualizado.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        window.editarEstoque = async function(id) {
+            if(!modoAdmAtivo||!produtosOnlineCarregados)return;
+            const p=produtos[id], texto=prompt('Quantidade em estoque:', String(p.estoque));
+            if(texto===null)return;
+            const estoque=Number(texto);
+            if(!Number.isInteger(estoque)||estoque<0){mostrarResultadoAdmin('Estoque inválido.');return;}
+            try {await requisicaoAdmin('/api/admin/produtos/'+id,'PUT',{estoque});await sincronizarProdutosOnline();mostrarResultadoAdmin('Estoque atualizado.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        window.excluirProduto = async function(id) {
+            if(!modoAdmAtivo||!produtosOnlineCarregados||!confirm('Excluir produto?'))return;
+            try {await requisicaoAdmin('/api/admin/produtos/'+id,'DELETE',{});await sincronizarProdutosOnline();mostrarResultadoAdmin('Produto excluído.');}
+            catch(e){mostrarResultadoAdmin(e.message);}
+        };
+        function mostrarResultadoAdmin(texto) {
+            const el=document.getElementById('statusCatalogoOnline');
+            if(el) {el.textContent=texto; el.className='small text-info mb-2';}
+            else console.info(texto);
+        }
+        // O catálogo publicado é a única fonte para clientes.
+        document.addEventListener('DOMContentLoaded',function(){
+            carregarConfiguracoes();
+            const area=document.getElementById('listaProdutos');
+            area.innerHTML='<p class="text-center text-muted">Carregando produtos...</p>';
+            sincronizarProdutosOnline();
+            carregarLogoOnline().catch(e=>console.warn('Logotipo:',e.message));
+            verificarLinkAutomatico();
+            carregarFundoCabecalho();
+            if(tokenAdmin()){
+                confirmarAdminServidor().then(()=>definirInterfaceAdmin(true)).catch(()=>definirInterfaceAdmin(false));
+            }
+            // Clientes veem atualização do estoque/preço sem precisar recarregar a página.
+            setInterval(()=>{
+                if(document.visibilityState==='visible')sincronizarProdutosOnline();
+            },30000);
+            document.addEventListener('visibilitychange',()=>{
+                if(document.visibilityState==='visible')sincronizarProdutosOnline();
+            });
+            confirmarRetornoPagamento();
+        });
+        async function confirmarRetornoPagamento(){
+            const parametros=new URLSearchParams(location.search);
+            const order_nsu=parametros.get('order_nsu');
+            const transaction_nsu=parametros.get('transaction_nsu');
+            const slug=parametros.get('slug');
+            if(!order_nsu||!transaction_nsu||!slug)return;
+            const area=document.getElementById('avisoPagamento');
+            area.className='container mt-3 alert alert-info';
+            area.textContent='Verificando a confirmação do pagamento...';
+            try{
+                const r=await fetch(urlCatalogo()+'/api/pagamento/confirmar',{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({order_nsu,transaction_nsu,slug})
+                });
+                const d=await r.json();
+                if(!r.ok)throw new Error(d.error||'Não foi possível confirmar o pagamento.');
+                if(d.pendente)throw new Error('O pagamento ainda não foi confirmado. Confira a transação na InfinitePay.');
+                area.className='container mt-3 alert '+(d.estoqueInsuficiente?'alert-warning':'alert-success');
+                area.textContent=d.estoqueInsuficiente?'Pagamento confirmado, mas há divergência de estoque. Entre em contato com a loja.':'Pagamento confirmado pela InfinitePay. Obrigado pela compra!';
+                await sincronizarProdutosOnline(true);
+            }catch(e){
+                area.className='container mt-3 alert alert-warning';
+                area.textContent='Não foi possível confirmar automaticamente: '+e.message+' Confira o pagamento no aplicativo InfinitePay.';
+            }finally{
+                // Evita confirmar a mesma URL em toda atualização da página.
+                const limpa=new URL(location.href);
+                ['order_nsu','transaction_nsu','slug','receipt_url','capture_method'].forEach(k=>limpa.searchParams.delete(k));
+                history.replaceState(null,'',limpa.pathname+limpa.search+limpa.hash);
+            }
+        }
+        function atualizarValoresCompra() {
+            if (produtoAtual) calcularTotal();
+        // Depois de carregar os produtos
+aplicarVisibilidadeBotaoTroca();
+}
+
+
+const valorFinal = totalCompra * (1 - configLoja.descontoPixPercent /100);
+
+// ========== CONTROLE DO BOTÃO TROCAR FOTO ==========
+function alternarBotaoTrocaFoto() {
+    const ligado = document.getElementById('mostrarBotaoTrocaFoto').checked;
+    localStorage.setItem('botaoTrocaFotoAtivo', ligado ? 'sim' : 'nao');
+    aplicarVisibilidadeBotaoTroca();
+}
+
+function aplicarVisibilidadeBotaoTroca() {
+    const estado = localStorage.getItem('botaoTrocaFotoAtivo') || 'sim';
+    const ligado = estado === 'sim';
+    
+    // Marca/desmarca o interruptor
+    const interruptor = document.getElementById('mostrarBotaoTrocaFoto');
+    if (interruptor) interruptor.checked = ligado;
+    
+    // Aplica em todos os botões
+    document.querySelectorAll('.btn-trocar-foto').forEach(btn => {
+        btn.style.display = (modoAdmAtivo && ligado) ? 'block' : 'none';
+    });
+}
+// Atualização da loja
+
+    </script>
+    
+</body>
+</html>

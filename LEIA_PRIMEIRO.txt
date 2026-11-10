@@ -1,0 +1,53 @@
+LOJA INTEGRADA — ARQUIVOS CORRIGIDOS
+
+1) REPOSITORIO DO SITE: site-2
+   Substitua o index.html pelo arquivo da pasta site-2.
+   Copie a pasta assets (logo-padrao.svg e sem-foto.svg) para a raiz
+   de seu repositorio site-2, mantendo os nomes.
+
+2) REPOSITORIO DO BACKEND: infinitepay-backend
+   Substitua server.js pelo arquivo da pasta infinitepay-backend.
+   Confira se package.json declara firebase-admin. Se ja declara, mantenha.
+   Mantenha seu catalogo.json atual se ele contiver produtos verdadeiros.
+   O catalogo.json incluido e apenas o catalogo que voce enviou no ZIP.
+
+3) RENDER > ENVIRONMENT (NUNCA NO HTML)
+   FIREBASE_SERVICE_ACCOUNT_JSON = JSON da conta de servico Firestore
+   INFINITEPAY_HANDLE = sua InfiniteTag sem $
+   INFINITEPAY_API_KEY = API Key privada do checkout integrado
+   ADMIN_PASSWORD = sua senha privada
+   ADMIN_SESSION_SECRET = codigo aleatorio com pelo menos 32 caracteres
+   SITE_ORIGIN = https://tiago73103743-a11y.github.io
+   PUBLIC_BACKEND_URL = https://infinitepay-backend.onrender.com
+   DESCONTO_PIX = percentual opcional (ex.: 5); requer API Key
+   Observacao: SITE_ORIGIN e somente a origem, sem /site-2 e sem barra final.
+
+4) TESTES ANTES DE LIBERAR VENDAS
+   - Acesse seu endereco oficial do GitHub Pages.
+   - Confirme se os produtos aparecem e a senha de administrador funciona.
+   - Troque foto e logotipo, recarregue a pagina e abra em janela anonima.
+   - Altere um preco; confirme o novo preco em outra aba.
+   - Realize pagamento de teste autorizado e de baixo valor.
+   - Confira o evento de webhook nos logs do Render e a quantidade no Firestore.
+   - Clique na compra novamente somente para testar bloqueio de estoque.
+
+O QUE O SISTEMA FAZ
+- Cliente ve preco e estoque publicados no Firestore.
+- Administrador edita produto, foto e logotipo via servidor autenticado.
+- Servidor consulta pagamento real na InfinitePay antes de reduzir estoque.
+- Baixa de estoque usa transacao e evita desconto duplicado.
+- O preco nao diminui automaticamente apos uma venda.
+- A loja consulta o catalogo periodicamente, sem atualizacao instantanea.
+
+LIMITES IMPORTANTES
+- Nao foi feito pagamento real nesta verificacao: foram usados testes locais
+  com respostas simuladas da InfinitePay e do Firestore.
+- Pagamentos simultaneos podem superar o estoque, porque nao existe reserva
+  durante o checkout. Nesse caso o sistema registra divergencia para o admin.
+- Sem API Key, o checkout nao garante link de pagamento unico; configure-a.
+- Fotos sao convertidas para JPEG compacto e salvas no Firestore; para
+  grande volume de imagens, futuramente use Firebase Storage.
+- A alteracao do fundo de cabecalho continua local neste navegador, nao global.
+
+IMPORTANTE: ESTE ZIP TEM DUAS PASTAS DESTINADAS A DOIS REPOSITORIOS.
+NAO SUBA A PASTA infinitepay-backend PARA O GITHUB PAGES.
