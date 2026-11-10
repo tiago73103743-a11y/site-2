@@ -308,7 +308,7 @@ body.carrinho-aberto {
                 
                 <!-- NÃO LOGADO — digita e-mail -->
                 <div class="form-login" id="telaEntrada">
-                    <h5 class="text-center mb-3"><i class="bi bi-box-arrow-in-right me-2"></i>Acess</h5>
+                    <h5 class="text-center mb-3"><i class="bi bi-box-arrow-in-right me-2"></i>Acesso</h5>
                     <div class="mb-3">
                         <label class="form-label">Seu e-mail</label>
                         <input type="email" id="emailLogin" class="form-control" placeholder="seu@email.com">
@@ -651,6 +651,8 @@ body.carrinho-aberto {
             let el=document.getElementById('avisoLoja');
             if(!el){el=document.createElement('div');el.id='avisoLoja';el.className='alert alert-warning position-fixed bottom-0 start-50 translate-middle-x';el.style.zIndex='3000';document.body.appendChild(el);}
             el.textContent=msg;
+            clearTimeout(mostrarAvisoLoja._timer);
+            mostrarAvisoLoja._timer=setTimeout(()=>el.remove(),5000);
         }
         // Logotipo é salvo pelo servidor. Nunca fica apenas no navegador.
         async function trocarLogoAdmin(event) {
@@ -692,7 +694,7 @@ body.carrinho-aberto {
             try {
                 const dados=JSON.parse(localStorage.getItem('configLoja') || 'null');
                 if (dados) {
-                    configLoja.infinitepay.backendUrl=dados.infinitepay?.backendUrl || 'https://infinitepay-backend.onrender.com';
+                    configLoja.infinitepay.backendUrl='https://infinitepay-backend.onrender.com';
                     configLoja.descontoPixPercent=Number.isFinite(Number(dados.descontoPixPercent)) ? Number(dados.descontoPixPercent) : 5;
                 }
             } catch(e) { console.error('Configuração:',e); }
@@ -739,7 +741,7 @@ body.carrinho-aberto {
             if(!produtosOnlineCarregados){mostrarAvisoLoja('Catálogo online indisponível.');return;}
             const status = document.getElementById('statusInfinitePay');
             const botao = document.getElementById('btnCheckoutInfinite');
-            const backend = (configLoja.infinitepay?.backendUrl || '').replace(/\/$/, '');
+            const backend = urlCatalogo();
             status.className = 'small text-danger';
             if (!/^https:\/\/[^\s]+/i.test(backend)) {
                 status.textContent = 'Configure o endereço HTTPS do servidor InfinitePay nas configurações.';
@@ -767,11 +769,11 @@ body.carrinho-aberto {
                 });
                 const dados=await resp.json();
                 if(!resp.ok) throw new Error(dados.error||'Não foi possível criar o pagamento.');
-                if(dados.valorCentavos!==totalEsperado) throw new Error('Diferença no valor da cobrança. Atualize o catálogo do servidor antes de pagar.');
+                if(!Number.isSafeInteger(dados.valorCentavos) || dados.valorCentavos<100 || dados.valorCentavos>totalEsperado) throw new Error('Valor da cobrança inesperado. Confira o servidor antes de pagar.');
                 const destino=new URL(dados.url);
                 if(destino.protocol!=='https:' || !/(^|\.)infinitepay\.(io|com\.br)$/.test(destino.hostname)) throw new Error('Link da InfinitePay inválido.');
                 status.className='small text-success';
-                status.textContent='Total confirmado: '+formatarMoeda(totalEsperado/100)+'. Abrindo InfinitePay...';
+                status.textContent='Total confirmado: '+formatarMoeda(dados.valorCentavos/100)+'. Abrindo InfinitePay...';
                 window.location.assign(destino.href);
             } catch(e) {
                 status.className='small text-danger';
@@ -806,8 +808,8 @@ body.carrinho-aberto {
             <div class="col mb-5 produto-card" id="colunaProduto${id}">
                <div class="card h-100 ${localStorage.getItem('botaoTrocaFotoAtivo') === 'nao' ? 'botao-troca-desativado' : ''}">
 
-                    <div class="foto-produto" id="containerFoto${id}" style="height:${p.alturaFoto}px;">
-                        <img id="imgProduto${id}" src="${p.foto}" alt="Produto"
+                    <div class="foto-produto" id="containerFoto${id}" style="height:${Math.max(80,Math.min(400,Number(p.alturaFoto)||180))}px;">
+                        <img id="imgProduto${id}" src="${escaparHTML(p.foto)}" alt="Produto"
                              style="height:100%;width:100%;object-fit:${p.ajusteFoto};" />
 
                         <button type="button" class="btn btn-sm btn-light btn-trocar-foto"
@@ -868,7 +870,7 @@ body.carrinho-aberto {
                         </div>
                     </div>
                     <div class="d-grid gap-2">
-    <button class="btn btn-outline-success w-100" onclick="adicionarAoCarrinho(${id})">
+    <button class="btn btn-outline-success w-100" onclick="adicionarAoCarrinho(${id})" ${p.estoque<=0?'disabled':''}>
         <i class="bi-cart-plus me-1"></i> Adicionar ao Carrinho
     </button>
     <button class="btn btn-success w-100" onclick="abrirCarrinho()">
@@ -878,53 +880,6 @@ body.carrinho-aberto {
 
                 </div>
             </div>`;
-        }
-
-        function salvarProdutoNoStorage(id) {
-            const p = produtos[id];
-            localStorage.setItem(`produto${id}Nome`, p.nome);
-            localStorage.setItem(`produto${id}PrecoAtual`, p.precoAtual);
-            if (p.precoAntigo !== null) {
-                localStorage.setItem(`produto${id}PrecoAntigo`, p.precoAntigo);
-                localStorage.setItem(`produto${id}TemAntigo`, 'sim');
-            } else {
-                localStorage.setItem(`produto${id}TemAntigo`, 'nao');
-                localStorage.removeItem(`produto${id}PrecoAntigo`);
-            }
-            localStorage.setItem(`produto${id}Estoque`, p.estoque);
-            localStorage.setItem(`produto${id}Foto`, p.foto);
-            localStorage.setItem(`produto${id}AlturaFoto`, p.alturaFoto);
-            localStorage.setItem(`produto${id}ModoAjuste`, p.ajusteFoto);
-            localStorage.setItem('ultimoIdProduto', String(proximoId - 1));
-        }
-
-        function carregarProdutoDoStorage(id) {
-            const prefix = `produto${id}`;
-            const nome = localStorage.getItem(`${prefix}Nome`);
-            if (!nome) return false;
-            const temAntigo = localStorage.getItem(`${prefix}TemAntigo`) === 'sim';
-            produtos[id] = {
-                nome: nome,
-                precoAtual: parseFloat(localStorage.getItem(`${prefix}PrecoAtual`) || '0'),
-                precoAntigo: temAntigo ? parseFloat(localStorage.getItem(`${prefix}PrecoAntigo`) || '0') : null,
-                estoque: parseInt(localStorage.getItem(`${prefix}Estoque`) || String(ESTOQUE_PADRAO), 10),
-                foto: localStorage.getItem(`${prefix}Foto`) || FOTO_PADRAO,
-                alturaFoto: parseInt(localStorage.getItem(`${prefix}AlturaFoto`) || '180', 10),
-                ajusteFoto: localStorage.getItem(`${prefix}ModoAjuste`) || 'cover'
-            };
-            return true;
-        }
-
-        function recarregarTodosProdutos() {
-            document.getElementById('listaProdutos').innerHTML = '';
-            let maxId = 0;
-            for (let i = 1; i <= 100; i++) {
-                if (carregarProdutoDoStorage(i)) {
-                    document.getElementById('listaProdutos').insertAdjacentHTML('beforeend', criarTemplateProduto(i));
-                    maxId = i;
-                }
-            }
-            proximoId = maxId + 1;
         }
 
         // Fotos e dimensões agora são gravadas no banco pelo módulo online, abaixo.
@@ -948,7 +903,7 @@ body.carrinho-aberto {
                 if(img)img.src=foto;
                 mostrarResultadoAdmin('Foto enviada. Confirmando publicação...');
                 await sincronizarProdutosOnline(true);
-                if(produtos[id]?.foto!==foto)throw new Error('O servidor ainda não confirmou a foto. Atualize a página e confira.');
+                if(!produtos[id]?.foto || produtos[id].foto===FOTO_PADRAO)throw new Error('O servidor ainda não confirmou a foto. Atualize a página e confira.');
                 mostrarResultadoAdmin('Foto publicada para todos os clientes.');
             }catch(e){
                 console.error('Erro no envio de foto:',e);
@@ -972,77 +927,6 @@ body.carrinho-aberto {
                 mostrarResultadoAdmin('Tamanho da foto publicado.');
             }catch(e){mostrarResultadoAdmin('Erro ao ajustar imagem: '+e.message);}
         }
-        function adicionarNovoProduto() {
-            if (!modoAdmAtivo) return alert('❌ Acesso restrito!');
-            const nome = prompt('Nome do produto:');
-            if (!nome || !nome.trim()) return;
-            const precoAtual = prompt('Preço atual (ex: 10,00):');
-            if (!precoAtual) return;
-            const precoAntigo = prompt('Preço antigo — DEIXE EM BRANCO SE NÃO TIVER:');
-            if (precoAntigo === null) return;
-            const estoque = prompt('Quantidade em estoque:', ESTOQUE_PADRAO.toString());
-            if (estoque === null) return;
-            const novoId = proximoId++;
-            produtos[novoId] = {
-                nome: nome.trim(),
-                precoAtual: parseFloat(precoAtual.replace(',', '.')),
-                precoAntigo: precoAntigo?.trim() ? parseFloat(precoAntigo.replace(',', '.')) : null,
-                estoque: parseInt(estoque, 10),
-                foto: FOTO_PADRAO,
-                alturaFoto: 180,
-                ajusteFoto: 'cover'
-            };
-            salvarProdutoNoStorage(novoId);
-            document.getElementById('listaProdutos').insertAdjacentHTML('beforeend', criarTemplateProduto(novoId));
-            alert(`✅ "${nome}" adicionado!`);
-        }
-
-        function excluirProduto(id) {
-            if (!modoAdmAtivo) return;
-            if (!confirm(`Excluir "${produtos[id].nome}"?`)) return;
-            document.getElementById(`colunaProduto${id}`).remove();
-            Object.keys(localStorage).forEach(chave => {
-                if (chave.startsWith(`produto${id}`)) localStorage.removeItem(chave);
-            });
-            delete produtos[id];
-            alert('✅ Excluído!');
-        }
-
-        function editarCampo(elId, id) {
-            if (!modoAdmAtivo) return;
-            const novo = prompt('Novo nome:', produtos[id].nome);
-            if (!novo) return;
-            produtos[id].nome = novo.trim();
-            salvarProdutoNoStorage(id);
-            document.getElementById(elId).textContent = novo;
-        }
-
-        window.editarPrecos = function(id) {
-            if (!modoAdmAtivo) return;
-            const p = produtos[id];
-            const antigo = prompt('Preço antigo — DEIXE EM BRANCO PARA REMOVER:', 
-                p.precoAntigo ? p.precoAntigo.toFixed(2).replace('.', ',') : '');
-            if (antigo === null) return;
-            const atual = prompt('Preço atual:', p.precoAtual.toFixed(2).replace('.', ','));
-            if (!atual) return;
-            p.precoAntigo = antigo.trim() ? parseFloat(antigo.replace(',', '.')) : null;
-            p.precoAtual = parseFloat(atual.replace(',', '.'));
-            salvarProdutoNoStorage(id);
-            recarregarTodosProdutos();
-        }
-
-        function editarEstoque(id) {
-            if (!modoAdmAtivo) return;
-            const qtd = prompt('Nova quantidade:', produtos[id].estoque);
-            if (!qtd) return;
-            produtos[id].estoque = parseInt(qtd);
-            salvarProdutoNoStorage(id);
-            recarregarTodosProdutos();
-        }
-
-       
-     
-
         // Autenticação do administrador separada do login de clientes.
         const CHAVE_SESSAO_ADMIN = 'sessaoAdminRender';
         function tokenAdmin() { return sessionStorage.getItem(CHAVE_SESSAO_ADMIN) || ''; }
@@ -1096,6 +980,7 @@ body.carrinho-aberto {
 
         function abrirModalCompra(id) {
             produtoAtual = produtos[id];
+            if (!produtoAtual) return mostrarAvisoLoja('Produto indisponível.');
             freteSelecionado = { valor: 0, nome: "Retirada no Local" };
             document.getElementById('nomeProdutoCompra').textContent = carrinho.length > 1 ? 'Seu carrinho (' + carrinho.length + ' itens)' : produtoAtual.nome;
             document.getElementById('valorProdutoCompra').textContent = formatarMoeda(carrinho.length ? carrinho.reduce((s, i) => s + Number(i.preco), 0) : produtoAtual.precoAtual);
@@ -1125,7 +1010,7 @@ body.carrinho-aberto {
         }
 
         function calcularTotal() {
-            const subtotal = carrinho.length ? carrinho.reduce((s, item) => s + Number(item.preco), 0) : produtoAtual.precoAtual;
+            const subtotal = carrinho.length ? carrinho.reduce((s, item) => s + Number(item.preco), 0) : (produtoAtual?.precoAtual || 0);
             totalCompra = subtotal + freteSelecionado.valor;
             document.getElementById('subtotalCompra').textContent = formatarMoeda(subtotal);
             document.getElementById('valorFreteSelecionado').textContent = formatarMoeda(freteSelecionado.valor);
@@ -1143,8 +1028,9 @@ body.carrinho-aberto {
             const quantidade=carrinho.filter(item=>String(item.id)===String(id)).length;
             if(quantidade>=p.estoque){mostrarAvisoLoja('Quantidade indisponível no estoque.');return;}
             carrinho.push({ id: id, nome: p.nome, preco: p.precoAtual });
-            alert(`✅ "${p.nome}" adicionado ao carrinho!`);
+            mostrarAvisoLoja(`✅ "${p.nome}" adicionado ao carrinho!`);
             atualizarCarrinho();
+            abrirCarrinho();
         }
 
         function atualizarCarrinho() {
@@ -1154,6 +1040,7 @@ body.carrinho-aberto {
 
             if (carrinho.length === 0) {
                 secao.classList.add('d-none');
+                atualizarExibicaoCarrinho();
                 return;
             }
 
@@ -1167,7 +1054,7 @@ body.carrinho-aberto {
                 lista.innerHTML += `
                 <div class="d-flex justify-content-between align-items-center border-bottom py-2">
                     <div>
-                        <h6 class="mb-0">${item.nome}</h6>
+                        <h6 class="mb-0">${escaparHTML(item.nome)}</h6>
                         <small class="text-muted">${formatarMoeda(item.preco)}</small>
                     </div>
                     <button class="btn btn-sm btn-outline-danger" onclick="removerDoCarrinho(${indice})">
@@ -1177,6 +1064,7 @@ body.carrinho-aberto {
             });
 
             totalElement.textContent = formatarMoeda(total);
+            atualizarExibicaoCarrinho();
         }
 
         function removerDoCarrinho(indice) {
@@ -1231,7 +1119,7 @@ function atualizarExibicaoCarrinho() {
     container.innerHTML += `
       <div class="item-carrinho">
         <div>
-          <h6 class="mb-1">${item.nome}</h6>
+          <h6 class="mb-1">${escaparHTML(item.nome)}</h6>
           <small class="text-muted">${formatarMoeda(item.preco)}</small>
         </div>
         <div class="item-controles">
@@ -1254,7 +1142,7 @@ function diminuirItem(id) {
   const idx = carrinho.findIndex(i => i.id === id);
   if (idx !== -1) {
     carrinho.splice(idx, 1);
-    atualizarExibicaoCarrinho();
+    atualizarCarrinho();
   }
 }
 
@@ -1265,13 +1153,6 @@ function irParaCompra() {
   const primeiroId = carrinho[0].id;
   abrirModalCompra(primeiroId);
 }
-
-// Atualize a função existente
-const originalAdicionar = adicionarAoCarrinho;
-adicionarAoCarrinho = function(id) {
-  originalAdicionar(id);
-  abrirCarrinho(); // Abre a lateral automaticamente
-};
 
 function abrirModalSenhaAdm() {
     document.getElementById('erroSenha').classList.add('d-none');
@@ -1329,7 +1210,7 @@ function abrirModalSenhaAdm() {
         // ================= CATÁLOGO ONLINE / FIRESTORE =================
         const URL_BACKEND_PADRAO = 'https://infinitepay-backend.onrender.com';
         function urlCatalogo() {
-            return (configLoja.infinitepay?.backendUrl || URL_BACKEND_PADRAO).replace(/\/$/, '');
+            return URL_BACKEND_PADRAO;
         }
         async function confirmarAdminServidor() {
             const token = tokenAdmin();
@@ -1355,7 +1236,7 @@ function abrirModalSenhaAdm() {
         }
         let produtosOnlineCarregados = false;
         async function sincronizarProdutosOnline(forcar=false) {
-            if(sincronizacaoEmCurso && !forcar)return;
+            if(sincronizacaoEmCurso)return;
             if(enviosEmAndamento && !forcar)return;
             const status=document.getElementById('statusCatalogoOnline');
             sincronizacaoEmCurso=true;
@@ -1369,7 +1250,7 @@ function abrirModalSenhaAdm() {
                     if(!/^\d+$/.test(id) || !p || !Number.isSafeInteger(p.precoCentavos) || !Number.isSafeInteger(p.estoque))continue;
                     lista[id]={
                         nome:String(p.nome||'Produto'),precoAtual:p.precoCentavos/100,
-                        precoAntigo:null,estoque:p.estoque,
+                        precoAntigo:Number.isSafeInteger(p.precoAntigoCentavos)?p.precoAntigoCentavos/100:null,estoque:p.estoque,
                         foto:p.foto||FOTO_PADRAO,
                         alturaFoto:Number.isInteger(p.alturaFoto)?p.alturaFoto:180,
                         ajusteFoto:['cover','contain','fill'].includes(p.ajusteFoto)?p.ajusteFoto:'cover'
@@ -1518,7 +1399,7 @@ aplicarVisibilidadeBotaoTroca();
 }
 
 
-const valorFinal = totalCompra * (1 - configLoja.descontoPixPercent /100);
+
 
 // ========== CONTROLE DO BOTÃO TROCAR FOTO ==========
 function alternarBotaoTrocaFoto() {
