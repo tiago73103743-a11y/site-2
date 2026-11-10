@@ -26,12 +26,17 @@ try {
 }
 
 function imagemValida(s){return typeof s==='string'&&s.length<=650000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(s);}
-function cors(req){
-  const origem = req.headers.origin || '';
+function cors(req) {
+    const origem = req.headers.origin || '';
 
-  if (!origem && req.method === 'GET' && req.url === '/health') {
-    return true;
-  }
+    // Permite consultas GET abertas diretamente no navegador
+    if (!origem && req.method === 'GET') {
+        return true;
+    }
+
+    // Mantém a restrição para origens não autorizadas
+    return !SITE_ORIGIN || origem === SITE_ORIGIN;
+}
 
   return !SITE_ORIGIN || origem === SITE_ORIGIN;
 }
