@@ -35,7 +35,7 @@ function cors(req) {
     }
 
     // Mantém a restrição para origens não autorizadas
-    return !SITE_ORIGIN || origem === SITE_ORIGIN;
+   
 }
 
   return !SITE_ORIGIN || origem === SITE_ORIGIN;
