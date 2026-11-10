@@ -36,7 +36,7 @@ function cors(req){
   return !SITE_ORIGIN || origem === SITE_ORIGIN;
 }
 function json(req,res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':SITE_ORIGIN||'null','Vary':'Origin','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
-function corpo(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>750000){reject(new Error('Corpo muito grande'));req.destroy();}});req.on('end',()=>{try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
+function corpo(req){return new Promise((resolve,reject)=>{let s='';let excedeu=false;req.on('data',c=>{if(excedeu)return;s+=c;if(s.length>750000){excedeu=true;s='';reject(new Error('Imagem acima do limite aceito pelo servidor (750 KB).'));}});req.on('end',()=>{if(excedeu)return;try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
 // Sessões de administração temporárias, assinadas e verificadas no servidor.
 // Configure ADMIN_PASSWORD (senha forte) e ADMIN_SESSION_SECRET (aleatório, 32+ caracteres) no Render.
 const tentativasFalhas = new Map();
@@ -79,8 +79,16 @@ async function catalogo(){
     const snap=await db.collection('produtos').get();
     snap.forEach(doc=>{
       const p=doc.data();
+      if(!/^\d+$/.test(doc.id))return;
       if(p.excluido){delete produtos[doc.id];return;}
-      if(/^\d+$/.test(doc.id))produtos[doc.id]={nome:p.nome,precoCentavos:p.precoCentavos,estoque:p.estoque,foto:p.foto||'',alturaFoto:p.alturaFoto||180,ajusteFoto:p.ajusteFoto||'cover',pixQr:p.pixQr||''};
+      // A edição de preço/nome/estoque atualiza só o campo alterado.
+      // Portanto, herdamos os demais campos do catálogo inicial.
+      const anterior=produtos[doc.id]||{nome:'',precoCentavos:0,estoque:50,foto:'',alturaFoto:180,ajusteFoto:'cover',pixQr:''};
+      produtos[doc.id]={...anterior,...p,
+        foto:p.foto||anterior.foto||'',pixQr:p.pixQr||anterior.pixQr||'',
+        alturaFoto:p.alturaFoto||anterior.alturaFoto||180,
+        ajusteFoto:p.ajusteFoto||anterior.ajusteFoto||'cover'};
+      delete produtos[doc.id].atualizadoEm;
     });
   }
   return produtos;
@@ -170,7 +178,19 @@ http.createServer(async(req,res)=>{
       if(resultado.estoqueInsuficiente)console.error('ALERTA: pedido pago com estoque insuficiente:',order_nsu);
       return json(req,res,200,{ok:true,...resultado});
     }
-    if(req.url==='/health'&&req.method==='GET')return json(req,res,200,{ok:true,checkoutConfigurado:!!HANDLE,bancoConfigurado:!!db});
+    // Retorno do navegador: confirmação oficial alternativa ao webhook.
+    // Nenhum dado do navegador é considerado pagamento sem /payment_check.
+    if(req.url==='/api/pagamento/confirmar'&&req.method==='POST'){
+      if(!db)return json(req,res,503,{error:'Banco indisponível'});
+      const evento=await corpo(req);
+      const order_nsu=String(evento.order_nsu||'');
+      const transaction_nsu=String(evento.transaction_nsu||'');
+      const slug=String(evento.slug||'');
+      if(!order_nsu||!transaction_nsu||!slug)return json(req,res,400,{error:'Dados de pagamento incompletos'});
+      const resultado=await registrarPagamento(order_nsu,transaction_nsu,slug);
+      return json(req,res,200,{ok:true,...resultado});
+    }
+    if(req.url==='/health'&&req.method==='GET')return json(req,res,200,{ok:true,checkoutConfigurado:!!HANDLE,bancoConfigurado:!!db,pagamentoUnicoConfigurado:!!API_KEY,origemConfigurada:!!SITE_ORIGIN});
     if(req.url==='/api/produtos'&&req.method==='GET')return json(req,res,200,{produtos:await catalogo()});
     if(req.url==='/api/admin/login'&&req.method==='POST'){
       if(!db || !ADMIN_PASSWORD || ADMIN_SESSION_SECRET.length<32)return json(req,res,503,{error:'Acesso administrativo ainda não configurado no servidor.'});
@@ -189,17 +209,52 @@ http.createServer(async(req,res)=>{
     }
     const rota=req.url.match(/^\/api\/admin\/produtos\/(\d+)$/);
     if(rota&&(req.method==='PUT'||req.method==='DELETE')){
-      await verificarAdmin(req);
+      verificarAdmin(req);
       const id=rota[1];
       if(!db)throw new Error('Banco indisponível');
+      const ref=db.collection('produtos').doc(id);
       if(req.method==='DELETE'){
-        await db.collection('produtos').doc(id).set({excluido:true});
+        await ref.set({excluido:true},{merge:true});
         return json(req,res,200,{ok:true});
       }
       const body=await corpo(req);
-      const nome=String(body.nome||'').trim(),precoCentavos=Number(body.precoCentavos),estoque=Number(body.estoque);
-      if(!nome||nome.length>90||!Number.isSafeInteger(precoCentavos)||precoCentavos<100||precoCentavos>100000000||!Number.isSafeInteger(estoque)||estoque<0||estoque>100000) return json(req,res,400,{error:'Dados do produto inválidos'});
-      await db.collection('produtos').doc(id).set({nome,precoCentavos,estoque,excluido:false,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+      const alteracoes={};
+      if(Object.hasOwn(body,'nome')){
+        const nome=String(body.nome||'').trim();
+        if(!nome||nome.length>90)return json(req,res,400,{error:'Nome do produto inválido'});
+        alteracoes.nome=nome;
+      }
+      if(Object.hasOwn(body,'precoCentavos')){
+        const preco=Number(body.precoCentavos);
+        if(!Number.isSafeInteger(preco)||preco<100||preco>100000000)return json(req,res,400,{error:'Preço inválido'});
+        alteracoes.precoCentavos=preco;
+      }
+      if(Object.hasOwn(body,'estoque')){
+        const estoque=Number(body.estoque);
+        if(!Number.isSafeInteger(estoque)||estoque<0||estoque>100000)return json(req,res,400,{error:'Estoque inválido'});
+        alteracoes.estoque=estoque;
+      }
+      if(!Object.keys(alteracoes).length)return json(req,res,400,{error:'Nenhuma alteração enviada'});
+      const existente=await ref.get();
+      if(!existente.exists&&!CATALOGO_INICIAL[id]){
+        if(!('nome' in alteracoes)||!('precoCentavos' in alteracoes)||!('estoque' in alteracoes))
+          return json(req,res,400,{error:'Novo produto exige nome, preço e estoque'});
+      }
+      await ref.set({...alteracoes,excluido:false,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+      return json(req,res,200,{ok:true});
+    }
+    // Altura e modo da foto são alterados sem tocar no estoque.
+    const aparenciaProduto=req.url.match(/^\/api\/admin\/produtos\/(\d+)\/aparencia$/);
+    if(aparenciaProduto&&req.method==='PUT'){
+      verificarAdmin(req);
+      const id=aparenciaProduto[1],body=await corpo(req);
+      const altura=Number(body.alturaFoto),modo=String(body.ajusteFoto||'');
+      if(!Number.isSafeInteger(altura)||altura<80||altura>400||!['cover','contain','fill'].includes(modo))
+        return json(req,res,400,{error:'Tamanho e modo da foto inválidos'});
+      const ref=db.collection('produtos').doc(id);
+      const snap=await ref.get();
+      if(!snap.exists&&!CATALOGO_INICIAL[id])return json(req,res,404,{error:'Produto não encontrado'});
+      await ref.set({alturaFoto:altura,ajusteFoto:modo,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
       return json(req,res,200,{ok:true});
     }
     if(req.url==='/api/aparencia'&&req.method==='GET'){
@@ -222,7 +277,7 @@ http.createServer(async(req,res)=>{
       if(!existente.exists){
         const inicial=CATALOGO_INICIAL[id];
         if(!inicial)return json(req,res,404,{error:'Produto não encontrado'});
-        await ref.set({nome:inicial.nome,precoCentavos:inicial.precoCentavos,estoque:50});
+        await ref.set({nome:inicial.nome,precoCentavos:inicial.precoCentavos,estoque:50},{merge:true});
       }
       await ref.set({[campo]:b[campo],atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
       return json(req,res,200,{ok:true});
@@ -243,17 +298,25 @@ http.createServer(async(req,res)=>{
       if(!Number.isSafeInteger(body.valorEsperadoCentavos)||body.valorEsperadoCentavos!==valorCentavos)return json(req,res,409,{error:'Preço da loja desatualizado. Atualize a página e tente de novo. Valor seguro do servidor: R$ '+(valorCentavos/100).toFixed(2).replace('.',',')});
       const order_nsu=crypto.randomUUID(),payload={handle:HANDLE,order_nsu,items,webhook:{url:PUBLIC_BACKEND_URL+'/api/webhook/infinitepay',events:['paid']}};
       if(SITE_ORIGIN.startsWith('https://'))payload.redirect_url=SITE_ORIGIN+'/site-2/'; 
-      if(API_KEY){payload.options={single_payment:true};if(DESCONTO_PIX>0&&DESCONTO_PIX<100)payload.options.discounts={pix:DESCONTO_PIX};}
+      if(API_KEY){
+        payload.options={single_payment:true,valid_until:new Date(Date.now()+2*60*60*1000).toISOString()};
+        if(DESCONTO_PIX>0&&DESCONTO_PIX<100)payload.options.discounts={pix:DESCONTO_PIX};
+      }
       const headers={'Content-Type':'application/json'};
       if(API_KEY)headers['X-Api-Key']=API_KEY;
       const respostaApi=await fetch('https://api.checkout.infinitepay.io/links',{method:'POST',headers,body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});
       const dados=await respostaApi.json();
       if(!respostaApi.ok)return json(req,res,502,{error:dados.message||dados.error||'Falha ao criar cobrança na InfinitePay'});
       const url=dados.url||dados.checkout_url||dados.link;
-      if(typeof url!=='string'||!url.startsWith('https://'))throw new Error('Checkout retornou URL inválida');
+      if(typeof url!=='string')throw new Error('Checkout retornou URL inválida');
+      const destino=new URL(url);
+      if(destino.protocol!=='https:'||!/(^|\.)infinitepay\.(io|com\.br)$/.test(destino.hostname))throw new Error('URL de checkout não pertence à InfinitePay');
       await db.collection('pedidos').doc(order_nsu).set({valorCentavos,pago:false,itens:body.itens,frete:body.frete,criadoEm:admin.firestore.FieldValue.serverTimestamp()});
       return json(req,res,200,{url,order_nsu,valorCentavos});
     }
     return json(req,res,404,{error:'Rota inexistente'});
-  }catch(e){console.error('Erro API:',e.message);return json(req,res,400,{error:e.message||'Erro interno'});}
+  }catch(e){console.error('Erro API:',e.message);
+    const codigo=/acima do limite|Corpo muito grande/.test(e.message)?413:400;
+    return json(req,res,codigo,{error:e.message||'Erro interno'});
+  }
 }).listen(PORT,()=>console.log('Servidor InfinitePay com catálogo Firestore na porta',PORT));
