@@ -12,6 +12,9 @@ const ADMIN_PASSWORD=String(process.env.ADMIN_PASSWORD||'');
 const ADMIN_SESSION_SECRET=String(process.env.ADMIN_SESSION_SECRET||'');
 const DESCONTO_PIX=Number(process.env.DESCONTO_PIX||0);
 const PUBLIC_BACKEND_URL=String(process.env.PUBLIC_BACKEND_URL||'https://infinitepay-backend.onrender.com').replace(/\/$/,'');
+// O login dos clientes utiliza outro projeto Firebase; o Firestore continua no projeto da loja.
+const CLIENT_FIREBASE_PROJECT_ID=String(process.env.CLIENT_FIREBASE_PROJECT_ID||'e-mail-2fc5e').trim();
+let clienteAuth=null;
 const CATALOGO_INICIAL=JSON.parse(fs.readFileSync(new URL('./catalogo.json','file://'+__filename),'utf8'));
 const fretes={'Retirada no Local':0,'Correios':890,'Entrega':1490};
 let db=null;
@@ -20,6 +23,13 @@ try {
     const conta=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
     admin.initializeApp({credential:admin.credential.cert(conta)});
     db=admin.firestore();
+    // Uma segunda instância valida tokens emitidos pelo Firebase Authentication dos clientes.
+    // A credencial do Firestore não é substituída e nenhuma chave do projeto de login é necessária.
+    const appCliente=admin.initializeApp({
+      credential:admin.credential.cert(conta),
+      projectId:CLIENT_FIREBASE_PROJECT_ID
+    },'autenticacao-clientes');
+    clienteAuth=appCliente.auth();
   } else console.warn('Firestore não configurado; edição online desabilitada.');
  } catch(e){
   console.error('Firebase Admin inválido:',e.message);
@@ -67,10 +77,13 @@ function verificarAdmin(req){
   return true;
 }
 async function verificarCliente(req){
-  if(!db)throw new Error('Firestore indisponível.');
+  if(!db||!clienteAuth)throw new Error('Autenticação ou Firestore indisponível.');
   const token=String(req.headers.authorization||'').match(/^Bearer (.+)$/)?.[1];
   if(!token)throw new Error('Faça login com seu e-mail antes de comprar ou consultar o histórico.');
-  const usuario=await admin.auth().verifyIdToken(token,true);
+  // Validação de assinatura, emissor, público e validade no projeto dos clientes.
+  // Sem checkRevoked: a conta de serviço do banco não tem necessariamente permissões
+  // para consultar revogação de sessões no outro projeto Firebase.
+  const usuario=await clienteAuth.verifyIdToken(token);
   if(!usuario.uid || !usuario.email || usuario.email_verified!==true)throw new Error('Confirme o acesso por e-mail para continuar.');
   return {uid:usuario.uid,email:usuario.email};
 }
