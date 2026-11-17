@@ -401,3 +401,4 @@ http.createServer(async(req,res)=>{
     return json(req,res,codigo,{error:e.message||'Erro interno'});
   }
 }).listen(PORT,()=>console.log('Servidor InfinitePay com catálogo Firestore na porta',PORT));
+ 
