@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const crypto=require('node:crypto');
 const {URL}=require('node:url');
 const admin=require('firebase-admin');
+const VERSAO_CORRECAO='firebase-dois-projetos-2026-11-17-v2';
 const PORT=Number(process.env.PORT||3000);
 const HANDLE=String(process.env.INFINITEPAY_HANDLE||'').replace(/^\$/,'').trim();
 const API_KEY=String(process.env.INFINITEPAY_API_KEY||'').trim();
@@ -21,15 +22,19 @@ let db=null;
 try {
   if(process.env.FIREBASE_SERVICE_ACCOUNT_JSON){
     const conta=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    admin.initializeApp({credential:admin.credential.cert(conta)});
-    db=admin.firestore();
+    const appLoja = admin.initializeApp({credential:admin.credential.cert(conta), projectId:conta.project_id});
+    db=admin.firestore(appLoja);
+    console.log('[CONFIG]', VERSAO_CORRECAO, 'Firestore:', appLoja.options.projectId);
     // O Firestore usa pequenos-estilos; os tokens dos clientes usam e-mail-2fc5e.
     // Sem credencial do projeto de produtos nesta instância: usa o ID dos clientes para validar o token.
     const appCliente = admin.initializeApp({
       projectId: CLIENT_FIREBASE_PROJECT_ID
     }, 'autenticacao-clientes');
     clienteAuth = admin.auth(appCliente);
-    console.log('Firebase clientes configurado para:', appCliente.options.projectId);
+    console.log('[CONFIG]', VERSAO_CORRECAO, 'Autenticacao clientes:', appCliente.options.projectId);
+    if(appLoja.options.projectId===appCliente.options.projectId) {
+      throw new Error('Projetos de autenticacao e Firestore nao podem ser iguais nesta configuracao.');
+    }
   } else console.warn('Firestore não configurado; edição online desabilitada.');
  } catch(e){
   console.error('Firebase Admin inválido:',e.message);
@@ -83,6 +88,11 @@ async function verificarCliente(req){
   // Validação de assinatura, emissor, público e validade no projeto dos clientes.
   // Sem checkRevoked: a conta de serviço do banco não tem necessariamente permissões
   // para consultar revogação de sessões no outro projeto Firebase.
+  // O projeto esperado precisa ser o dos clientes, nao o do Firestore.
+  const appAuth=clienteAuth.app;
+  if(appAuth.options.projectId!==CLIENT_FIREBASE_PROJECT_ID) {
+    throw new Error('Configuracao de autenticacao inconsistente: projeto de clientes incorreto.');
+  }
   const usuario=await clienteAuth.verifyIdToken(token);
   if(!usuario.uid || !usuario.email || usuario.email_verified!==true)throw new Error('Confirme o acesso por e-mail para continuar.');
   return {uid:usuario.uid,email:usuario.email};
@@ -220,7 +230,7 @@ http.createServer(async(req,res)=>{
       const resultado=await registrarPagamento(order_nsu,transaction_nsu,slug);
       return json(req,res,200,{ok:true,...resultado});
     }
-    if(req.url==='/health'&&req.method==='GET')return json(req,res,200,{ok:true,checkoutConfigurado:!!HANDLE,bancoConfigurado:!!db,pagamentoUnicoConfigurado:!!API_KEY,origemConfigurada:!!SITE_ORIGIN});
+    if(req.url==='/health'&&req.method==='GET')return json(req,res,200,{ok:true,versao:VERSAO_CORRECAO,projetoFirestore:admin.apps.find(a=>a.name==='[DEFAULT]')?.options.projectId||null,projetoAutenticacao:clienteAuth?.app?.options.projectId||null,checkoutConfigurado:!!HANDLE,bancoConfigurado:!!db,pagamentoUnicoConfigurado:!!API_KEY,origemConfigurada:!!SITE_ORIGIN});
     if(req.url==='/api/produtos'&&req.method==='GET')return json(req,res,200,{produtos:await catalogo()});
     if(req.url==='/api/devolucao'&&req.method==='GET'){
       if(!db)return json(req,res,503,{error:'Banco indisponível'});
