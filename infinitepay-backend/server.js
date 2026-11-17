@@ -23,15 +23,13 @@ try {
     const conta=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
     admin.initializeApp({credential:admin.credential.cert(conta)});
     db=admin.firestore();
-    // Uma segunda instância valida tokens emitidos pelo Firebase Authentication dos clientes.
-    // A credencial do Firestore não é substituída e nenhuma chave do projeto de login é necessária.
-  const appCliente = admin.initializeApp({
-  credential: admin.credential.cert(conta),
-  projectId: CLIENT_FIREBASE_PROJECT_ID
-}, 'autenticacao-clientes');
-
-clienteAuth = admin.auth(appCliente);
-    clienteAuth=appCliente.auth();
+    // O Firestore usa pequenos-estilos; os tokens dos clientes usam e-mail-2fc5e.
+    // Sem credencial do projeto de produtos nesta instância: usa o ID dos clientes para validar o token.
+    const appCliente = admin.initializeApp({
+      projectId: CLIENT_FIREBASE_PROJECT_ID
+    }, 'autenticacao-clientes');
+    clienteAuth = admin.auth(appCliente);
+    console.log('Firebase clientes configurado para:', appCliente.options.projectId);
   } else console.warn('Firestore não configurado; edição online desabilitada.');
  } catch(e){
   console.error('Firebase Admin inválido:',e.message);
