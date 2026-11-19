@@ -319,6 +319,11 @@ body.carrinho-aberto {
                         <label class="form-label">Seu e-mail</label>
                         <input type="email" id="emailLogin" class="form-control" placeholder="seu@email.com">
                     </div>
+                    <button type="button" class="btn btn-outline-dark w-100 mb-3" onclick="entrarComGoogle()">
+                        <span style="font-weight:bold;color:#4285F4;margin-right:8px">G</span> Continuar com o Google
+                    </button>
+                    <p class="text-muted small text-center">Já comprou usando link por e-mail? Entre primeiro pelo link e vincule o Google para preservar seu histórico.</p>
+                    <div class="text-center text-muted small my-2">ou continue com e-mail</div>
                     <button class="btn btn-success w-100" onclick="enviarLinkLogin()">
                         <i class="bi bi-send me-1"></i> Entrar / Cadastrar
                     </button>
@@ -331,6 +336,9 @@ body.carrinho-aberto {
                 <div class="usuario-logado text-center">
                     <h6 class="mb-2">Bem-vindo(a)! ✅</h6>
                     <p id="emailUsuario" class="text-muted mb-3"></p>
+                    <button type="button" class="btn btn-outline-dark w-100 mb-3" id="btnVincularGoogle" onclick="vincularGoogleContaAtual()">
+                        Vincular Google a esta conta
+                    </button>
                     <button class="btn btn-outline-danger" onclick="sairLogin()">
                         <i class="bi bi-box-arrow-right me-1"></i> Sair
                     </button>
@@ -672,6 +680,55 @@ body.carrinho-aberto {
             }
         }
 
+        // Login Google: autenticação no mesmo projeto Firebase dos clientes.
+        async function entrarComGoogle() {
+            try {
+                const atual = firebase.auth().currentUser;
+                if (atual) {
+                    mostrarAvisoLoja('Você já entrou. Para associar o Google e preservar suas compras, clique em "Vincular Google a esta conta".');
+                    return;
+                }
+                const provedor = new firebase.auth.GoogleAuthProvider();
+                const resultado = await firebase.auth().signInWithPopup(provedor);
+                atualizarTelaLogin(resultado.user);
+                mostrarAvisoLoja('Login com Google realizado!');
+            } catch (erro) {
+                console.error('Login Google:', erro);
+                if (erro.code === 'auth/account-exists-with-different-credential') {
+                    mostrarAvisoLoja('Esta conta já usa outro método. Entre primeiro pelo link de e-mail e use "Vincular Google a esta conta".');
+                } else if (erro.code === 'auth/popup-blocked') {
+                    mostrarAvisoLoja('O navegador bloqueou a janela do Google. Permita pop-ups para esta loja.');
+                } else if (erro.code !== 'auth/popup-closed-by-user') {
+                    mostrarAvisoLoja('Não foi possível entrar com Google: ' + (erro.message || erro.code));
+                }
+            }
+        }
+
+        async function vincularGoogleContaAtual() {
+            const atual = firebase.auth().currentUser;
+            if (!atual) return mostrarAvisoLoja('Entre primeiro pelo link de e-mail para preservar seu histórico.');
+            try {
+                if (atual.providerData.some(p => p.providerId === 'google.com')) {
+                    mostrarAvisoLoja('O Google já está vinculado a esta conta.');
+                    return;
+                }
+                const provedor = new firebase.auth.GoogleAuthProvider();
+                const resultado = await atual.linkWithPopup(provedor);
+                await resultado.user.reload();
+                atualizarTelaLogin(firebase.auth().currentUser);
+                mostrarAvisoLoja('Google vinculado! Suas compras continuam na mesma conta.');
+            } catch (erro) {
+                console.error('Vincular Google:', erro);
+                if (erro.code === 'auth/credential-already-in-use') {
+                    mostrarAvisoLoja('Esta conta Google está associada a outro usuário. Não alteramos suas compras; será necessário verificar o vínculo antes de continuar.');
+                } else if (erro.code === 'auth/provider-already-linked') {
+                    mostrarAvisoLoja('Google já vinculado a esta conta.');
+                } else if (erro.code !== 'auth/popup-closed-by-user') {
+                    mostrarAvisoLoja('Não foi possível vincular: ' + (erro.message || erro.code));
+                }
+            }
+        }
+
         function sairLogin() {
             firebase.auth().signOut().then(() => {
                 document.body.classList.remove('logado');
@@ -684,6 +741,8 @@ body.carrinho-aberto {
             if (usuario) {
                 document.body.classList.add('logado');
                 document.getElementById('emailUsuario').textContent = usuario.email;
+                const btnVinculo = document.getElementById('btnVincularGoogle');
+                if (btnVinculo) btnVinculo.classList.toggle('d-none', usuario.providerData.some(p => p.providerId === 'google.com'));
                 document.getElementById('acoesCliente').classList.remove('d-none');
             } else {
                 document.body.classList.remove('logado');
@@ -1421,7 +1480,7 @@ function abrirModalSenhaAdm() {
         function dataBR(v){return v?new Date(v).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'Aguardando confirmação';}
         async function buscarPedidosCliente(){
             const u=firebase.auth().currentUser;
-            if(!u || !u.emailVerified)throw new Error('Entre pelo link recebido no e-mail para consultar seus pedidos.');
+            if(!u || !u.emailVerified)throw new Error('Entre com uma conta verificada para consultar seus pedidos.');
             const token=await u.getIdToken();
             const r=await fetch(urlCatalogo()+'/api/cliente/pedidos',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
             const d=await r.json();if(!r.ok)throw new Error(d.error||'Não foi possível consultar as compras.');
