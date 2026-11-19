@@ -200,18 +200,59 @@ async function registrarPagamento(order_nsu,transaction_nsu,slug){
       const estoque=dados?.estoque===undefined?50:Number(dados.estoque);
       registros.push({id,ref,dados,inicial,estoque,qtd});
     }
-    if(registros.some(x=>!Number.isSafeInteger(x.estoque)||x.estoque<x.qtd||x.dados?.excluido)){
-      tx.update(pedidoRef,{pago:true,formaPagamento:confirmado.payment_method||confirmado.payment_type||'Não informada pela InfinitePay',statusEstoque:'insuficiente',transaction_nsu,slug,confirmadoEm:admin.firestore.FieldValue.serverTimestamp()});
-      return {estoqueInsuficiente:true};
-    }
-    for(const x of registros){
-      const base=x.dados?{}:{nome:String(x.inicial.nome),precoCentavos:Number(x.inicial.precoCentavos)};
-      tx.set(x.ref,{...base,estoque:x.estoque-x.qtd,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
-    }
-    tx.update(pedidoRef,{pago:true,formaPagamento:confirmado.payment_method||confirmado.payment_type||'Não informada pela InfinitePay',statusEstoque:'baixado',transaction_nsu,slug,confirmadoEm:admin.firestore.FieldValue.serverTimestamp()});
-    return {baixado:true};
+   
+const formaPagamento =
+  confirmado.capture_method === 'pix'
+    ? 'PIX'
+    : confirmado.capture_method === 'credit_card'
+      ? 'Cartão de crédito'
+      : confirmado.payment_method ||
+        confirmado.payment_type ||
+        'Não informado';
+
+if (registros.some(x =>
+  !Number.isSafeInteger(x.estoque) ||
+  x.estoque < x.qtd ||
+  x.dados?.excluido
+)) {
+  tx.update(pedidoRef, {
+    pago: true,
+    formaPagamento,
+    statusEstoque: 'insuficiente',
+    transaction_nsu,
+    slug,
+    confirmadoEm: admin.firestore.FieldValue.serverTimestamp()
   });
+
+  return { estoqueInsuficiente: true };
 }
+
+for (const x of registros) {
+  const base = x.dados ? {} : {
+    nome: String(x.inicial.nome),
+    precoCentavos: Number(x.inicial.precoCentavos)
+  };
+
+  tx.set(x.ref, {
+    ...base,
+    estoque: x.estoque - x.qtd,
+    atualizadoEm: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+tx.update(pedidoRef, {
+  pago: true,
+  formaPagamento,
+  statusEstoque: 'baixado',
+  transaction_nsu,
+  slug,
+  confirmadoEm: admin.firestore.FieldValue.serverTimestamp()
+});
+
+return { baixado: true };
+});
+}
+
 
 http.createServer(async(req,res)=>{
   if(req.method==='OPTIONS'){
