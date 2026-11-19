@@ -50,7 +50,7 @@ function cors(req) {
     }
 
     // Mantém a restrição para origens não autorizadas
-    return !SITE_ORIGIN || origem === SITE_ORIGIN;
+    return !SITE_ORIGIN || origem === SITE_ORIGIN || origem === PUBLIC_BACKEND_URL;
 }
 function json(req,res,status,data){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':SITE_ORIGIN||'null','Vary':'Origin','Cache-Control':'no-store'});res.end(JSON.stringify(data));}
 function corpo(req){return new Promise((resolve,reject)=>{let s='';let excedeu=false;req.on('data',c=>{if(excedeu)return;s+=c;if(s.length>750000){excedeu=true;s='';reject(new Error('Imagem acima do limite aceito pelo servidor (750 KB).'));}});req.on('end',()=>{if(excedeu)return;try{resolve(JSON.parse(s||'{}'));}catch{reject(new Error('JSON inválido'));}});req.on('error',reject);});}
@@ -97,6 +97,20 @@ async function verificarCliente(req){
   if(!usuario.uid || !usuario.email || usuario.email_verified!==true)throw new Error('Confirme o acesso por e-mail para continuar.');
   return {uid:usuario.uid,email:usuario.email};
 }
+function validarDadosEntrega(body, cliente){
+  const nome=String(body.clienteNome||'').trim();
+  if(nome.length<2||nome.length>100)throw new Error('Informe o nome do destinatario (2 a 100 caracteres).');
+  const frete=body.frete;
+  if(frete==='Retirada no Local')return {nome,endereco:null};
+  const a=body.endereco||{};
+  const texto=(v,max)=>String(v||'').trim().slice(0,max);
+  const endereco={cep:texto(a.cep,9).replace(/\D/g,''),street:texto(a.street,120),number:texto(a.number,15),
+    complement:texto(a.complement,80),neighborhood:texto(a.neighborhood,80),city:texto(a.city,80),state:texto(a.state,2).toUpperCase()};
+  if(!/^\d{8}$/.test(endereco.cep)||!endereco.street||!endereco.number||!endereco.neighborhood||!endereco.city||! /^[A-Z]{2}$/.test(endereco.state))
+    throw new Error('Preencha CEP, rua, numero, bairro, cidade e UF para entrega.');
+  return {nome,endereco};
+}
+
 function dataISO(v){return v?.toDate?.()?.toISOString?.()||null;}
 async function obterPrazoGeral(){
   const doc=await db.collection('configuracoes').doc('devolucao').get();
@@ -230,6 +244,7 @@ http.createServer(async(req,res)=>{
       const resultado=await registrarPagamento(order_nsu,transaction_nsu,slug);
       return json(req,res,200,{ok:true,...resultado});
     }
+    if(req.url==='/painel-pedidos'&&req.method==='GET'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"});return res.end(fs.readFileSync(new URL('./painel-pedidos.html','file://'+__filename),'utf8'));}
     if(req.url==='/health'&&req.method==='GET')return json(req,res,200,{ok:true,versao:VERSAO_CORRECAO,projetoFirestore:admin.apps.find(a=>a.name==='[DEFAULT]')?.options.projectId||null,projetoAutenticacao:clienteAuth?.app?.options.projectId||null,checkoutConfigurado:!!HANDLE,bancoConfigurado:!!db,pagamentoUnicoConfigurado:!!API_KEY,origemConfigurada:!!SITE_ORIGIN});
     if(req.url==='/api/produtos'&&req.method==='GET')return json(req,res,200,{produtos:await catalogo()});
     if(req.url==='/api/devolucao'&&req.method==='GET'){
@@ -242,6 +257,22 @@ http.createServer(async(req,res)=>{
       if(!Number.isSafeInteger(dias)||dias<0||dias>365)return json(req,res,400,{error:'Informe de 0 a 365 dias.'});
       await db.collection('configuracoes').doc('devolucao').set({dias,atualizadoEm:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
       return json(req,res,200,{ok:true,dias});
+    }
+    // Consulta administrativa, protegida por sessao assinada no backend.
+    // Apenas pedidos da loja, nao todo o extrato bancario da InfinitePay.
+    if(req.url==='/api/admin/pedidos'&&req.method==='GET'){
+      verificarAdmin(req);
+      const snap=await db.collection('pedidos').orderBy('criadoEm','desc').limit(200).get();
+      const pedidos=snap.docs.map(doc=>{
+        const p=doc.data();
+        return {id:doc.id,clienteNome:p.clienteNome||'',clienteEmail:p.clienteEmail||'',
+          endereco:p.endereco||null,frete:p.frete||'',valorCentavos:Number(p.valorCentavos)||0,
+          pago:!!p.pago,statusEstoque:p.statusEstoque||'',
+          formaPagamento:p.formaPagamento||'',transaction_nsu:p.transaction_nsu||'',
+          criadoEm:dataISO(p.criadoEm),confirmadoEm:dataISO(p.confirmadoEm),
+          itens:Array.isArray(p.itensSnapshot)?p.itensSnapshot:[]};
+      });
+      return json(req,res,200,{pedidos,limite:200,fonte:'Pedidos do Firestore; nao e extrato bancario da InfinitePay'});
     }
     if(req.url==='/api/cliente/pedidos'&&req.method==='GET'){
       const cliente=await verificarCliente(req);
@@ -356,6 +387,7 @@ http.createServer(async(req,res)=>{
       if(!HANDLE)return json(req,res,503,{error:'Configure INFINITEPAY_HANDLE no Render.'});
       const body=await corpo(req);
       if(!Array.isArray(body.itens)||body.itens.length<1||body.itens.length>30||!Object.hasOwn(fretes,body.frete))return json(req,res,400,{error:'Carrinho ou frete inválido'});
+      const dadosEntrega=validarDadosEntrega(body,cliente);
       const produtos=await catalogo();
       if(!db)return json(req,res,503,{error:'Firestore indisponível: checkout desativado para evitar vendas sem controle de estoque.'});
       const items=body.itens.map(x=>{
@@ -367,6 +399,8 @@ http.createServer(async(req,res)=>{
       const valorCentavos=items.reduce((s,i)=>s+i.price*i.quantity,0);
       if(!Number.isSafeInteger(body.valorEsperadoCentavos)||body.valorEsperadoCentavos!==valorCentavos)return json(req,res,409,{error:'Preço da loja desatualizado. Atualize a página e tente de novo. Valor seguro do servidor: R$ '+(valorCentavos/100).toFixed(2).replace('.',',')});
       const order_nsu=crypto.randomUUID(),payload={handle:HANDLE,order_nsu,items,webhook:{url:PUBLIC_BACKEND_URL+'/api/webhook/infinitepay',events:['paid']}};
+      payload.customer={name:dadosEntrega.nome,email:cliente.email};
+      if(dadosEntrega.endereco)payload.address=dadosEntrega.endereco;
       if(SITE_ORIGIN.startsWith('https://'))payload.redirect_url=SITE_ORIGIN+'/site-2/'; 
       if(API_KEY){
         payload.options={single_payment:true,valid_until:new Date(Date.now()+2*60*60*1000).toISOString()};
@@ -389,7 +423,7 @@ http.createServer(async(req,res)=>{
           quantidade:Number(item.quantidade),prazoDevolucaoDias:prazo};
       });
       await db.collection('pedidos').doc(order_nsu).set({
-        clienteUid:cliente.uid,clienteEmail:cliente.email,
+        clienteUid:cliente.uid,clienteEmail:cliente.email,clienteNome:dadosEntrega.nome,endereco:dadosEntrega.endereco,
         valorCentavos,pago:false,itens:body.itens,itensSnapshot,frete:body.frete,
         criadoEm:admin.firestore.FieldValue.serverTimestamp()
       });
@@ -401,4 +435,3 @@ http.createServer(async(req,res)=>{
     return json(req,res,codigo,{error:e.message||'Erro interno'});
   }
 }).listen(PORT,()=>console.log('Servidor InfinitePay com catálogo Firestore na porta',PORT));
- 
