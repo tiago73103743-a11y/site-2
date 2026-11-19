@@ -461,6 +461,22 @@ body.carrinho-aberto {
                     <div class="col-md-4"><label class="frete-option d-block" data-valor="8.90" data-nome="Correios" onclick="selecionarFrete(this)"><input type="radio" name="frete"> Correios — R$ 8,90</label></div>
                     <div class="col-md-4"><label class="frete-option d-block" data-valor="14.90" data-nome="Entrega" onclick="selecionarFrete(this)"><input type="radio" name="frete"> Entrega — R$ 14,90</label></div>
                 </div>
+            <!-- Dados da cestinha: armazenados no pedido antes de ir para a InfinitePay -->
+            <div class="card mb-3"><div class="card-body">
+              <h6 class="fw-bold mb-3">Dados do pedido</h6>
+              <label for="clienteNomePedido" class="form-label">Nome completo do destinatário</label>
+              <input class="form-control mb-3" id="clienteNomePedido" maxlength="100" autocomplete="name" required>
+              <div id="enderecoPedido" class="row g-2">
+                <div class="col-sm-4"><label class="form-label" for="pedidoCep">CEP</label><input class="form-control" id="pedidoCep" inputmode="numeric" maxlength="9" autocomplete="postal-code"></div>
+                <div class="col-sm-8"><label class="form-label" for="pedidoRua">Rua / Avenida</label><input class="form-control" id="pedidoRua" maxlength="120" autocomplete="address-line1"></div>
+                <div class="col-sm-4"><label class="form-label" for="pedidoNumero">Número</label><input class="form-control" id="pedidoNumero" maxlength="15"></div>
+                <div class="col-sm-8"><label class="form-label" for="pedidoComplemento">Complemento</label><input class="form-control" id="pedidoComplemento" maxlength="80" autocomplete="address-line2"></div>
+                <div class="col-sm-5"><label class="form-label" for="pedidoBairro">Bairro</label><input class="form-control" id="pedidoBairro" maxlength="80"></div>
+                <div class="col-sm-5"><label class="form-label" for="pedidoCidade">Cidade</label><input class="form-control" id="pedidoCidade" maxlength="80" autocomplete="address-level2"></div>
+                <div class="col-sm-2"><label class="form-label" for="pedidoEstado">UF</label><input class="form-control text-uppercase" id="pedidoEstado" maxlength="2" autocomplete="address-level1"></div>
+              </div>
+              <small class="text-muted d-block mt-2">Para retirada no local, o endereço não será exigido. Para entrega, preencha antes de pagar.</small>
+            </div></div>
             <!-- ÁREA DE PAGAMENTO -->
             <!-- COLOQUE ISSO DEPOIS DA ÁREA DO PIX no modalCompra -->
 <hr>
@@ -777,6 +793,11 @@ body.carrinho-aberto {
         }
 
         // O checkout sempre usa um servidor, que valida os preços do catálogo.
+        firebase.auth().onAuthStateChanged(u=>{
+            const campo=document.getElementById('clienteNomePedido');
+            if(u&&campo&&!campo.value&&u.displayName)campo.value=u.displayName;
+        });
+
         async function pagarInfinitePay() {
             if(!produtosOnlineCarregados){mostrarAvisoLoja('Catálogo online indisponível.');return;}
             const status = document.getElementById('statusInfinitePay');
@@ -806,9 +827,17 @@ body.carrinho-aberto {
                 const usuario=firebase.auth().currentUser;
                 if(!usuario || !usuario.emailVerified)throw new Error('Faça login e confirme seu e-mail antes de pagar.');
                 const token=await usuario.getIdToken();
+                const clienteNome=document.getElementById('clienteNomePedido').value.trim();
+                if(clienteNome.length<2)throw new Error('Informe seu nome completo antes de pagar.');
+                const endereco={cep:document.getElementById('pedidoCep').value,street:document.getElementById('pedidoRua').value,
+                    number:document.getElementById('pedidoNumero').value,complement:document.getElementById('pedidoComplemento').value,
+                    neighborhood:document.getElementById('pedidoBairro').value,city:document.getElementById('pedidoCidade').value,
+                    state:document.getElementById('pedidoEstado').value};
+                if(frete!=='Retirada no Local'&&(!/^\d{8}$/.test(endereco.cep.replace(/\D/g,''))||!endereco.street.trim()||!endereco.number.trim()||!endereco.neighborhood.trim()||!endereco.city.trim()||! /^[a-zA-Z]{2}$/.test(endereco.state.trim())))
+                    throw new Error('Para entrega, informe CEP, rua, numero, bairro, cidade e UF.');
                 const resp=await fetch(backend+'/api/checkout',{
                     method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
-                    body:JSON.stringify({itens:Object.entries(quantidades).map(([id,quantidade])=>({id,quantidade})),frete,valorEsperadoCentavos:totalEsperado})
+                    body:JSON.stringify({itens:Object.entries(quantidades).map(([id,quantidade])=>({id,quantidade})),frete,valorEsperadoCentavos:totalEsperado,clienteNome,endereco})
                 });
                 const dados=await resp.json();
                 if(!resp.ok) throw new Error(dados.error||'Não foi possível criar o pagamento.');
